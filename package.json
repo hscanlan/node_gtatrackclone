@@ -1,0 +1,18 @@
+{
+  "name": "node_gtatrackclone",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "cloneJob.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "robotjs": "^0.6.0",
+    "screenshot-desktop": "^1.15.2",
+    "sharp": "^0.34.3",
+    "tesseract.js": "^6.0.1"
+  }
+}
