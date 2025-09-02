@@ -12,8 +12,7 @@
         "enter": [
           { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_RIGHT", "times": 8 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 8 }
         ]
       },
       {
@@ -36,8 +35,7 @@
       {
         "enter": [
           { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
-          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 }
         ]
       },
       {
@@ -60,8 +58,7 @@
       {
         "enter": [
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_LEFT", "times": 22 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 22 }
         ]
       },
       {
@@ -86,8 +83,7 @@
         "enter": [
           { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_RIGHT", "times": 7 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 7 }
         ]
       },
       {
@@ -111,8 +107,7 @@
         "enter": [
           { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_RIGHT", "times": 7 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 2 }
         ]
       },
       {
@@ -131,17 +126,45 @@
     "inGameLabel": "Tube Corner 5°",
     "cat": "Stunt Props",
     "subcat": "Stunt Tubes",
-    "menuCommands": []
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 6 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
   },
   {
     "modelNumber": 2081936690,
     "hashUnsigned": 2081936690,
     "hashHex": "0x7C17D532",
     "modelName": "stt_prop_stunt_tube_s",
-    "inGameLabel": "Tube (Standard)",
+    "inGameLabel": "Tube Medium",
     "cat": "Stunt Props",
     "subcat": "Stunt Tubes",
-    "menuCommands": []
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 2 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
   },
   {
     "modelNumber": 364582714,
@@ -156,8 +179,7 @@
         "enter": [
           { "op": "repeat", "key": "DPAD_RIGHT", "times": 11 },
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_RIGHT", "times": 1 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 1 }
         ]
       },
       {
@@ -181,8 +203,7 @@
         "enter": [
           { "op": "repeat", "key": "DPAD_RIGHT", "times": 11 },
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_RIGHT", "times": 8 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 8 }
         ]
       },
       {
@@ -206,8 +227,7 @@
         "enter": [
           { "op": "repeat", "key": "DPAD_LEFT", "times": 1 },
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_LEFT", "times": 24 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 24 }
         ]
       },
       {
@@ -230,8 +250,7 @@
       {
         "enter": [
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_RIGHT", "times": 13 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 13 }
         ]
       },
       {
@@ -255,8 +274,7 @@
       {
         "enter": [
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_RIGHT", "times": 14 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 14 }
         ]
       },
       {
@@ -281,8 +299,7 @@
         "enter": [
           { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_LEFT", "times": 6 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 6 }
         ]
       },
       {
@@ -326,8 +343,7 @@
         "enter": [
           { "op": "repeat", "key": "DPAD_RIGHT", "times": 15 },
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_LEFT", "times": 9 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 9 }
         ]
       },
       {
@@ -350,8 +366,7 @@
       {
         "enter": [
           { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
-          { "op": "repeat", "key": "DPAD_RIGHT", "times": 15 },
-          { "op": "sleep", "ms": 2000 }
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 15 }
         ]
       },
       {
@@ -418,10 +433,24 @@
     "hashUnsigned": 1894747351,
     "hashHex": "0x70F774D7",
     "modelName": "as_prop_as_tube_gap_02",
-    "inGameLabel": "AS Tube Gap 02",
-    "cat": "After Hours Props",
-    "subcat": "",
-    "menuCommands": []
+    "inGameLabel": "Tube Double Gap",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tube",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 13 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
   },
   {
     "modelNumber": 2144125188,
@@ -429,8 +458,22 @@
     "hashHex": "0x7FCCC104",
     "modelName": "ar_prop_ar_tube_xs",
     "inGameLabel": "Arena Tube XS",
-    "cat": "Arena War Props",
-    "subcat": "",
-    "menuCommands": []
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tube",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 1 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
   }
 ]

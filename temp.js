@@ -445,10 +445,6 @@ async function runPlacement({
   speed,
 }) {
 
-  var current_x = 0;
-  var current_y = 0;
-  var current_z = 0;
-
   await repeat("DPAD_DOWN", 5);
   await sleep(250);
   await tapName("CROSS", 200);
@@ -592,8 +588,8 @@ async function runPlacement({
   // RElEASE TRIANGLE
   keyUpName("TRIANGLE");
 
-  
-  await tapName("CROSS", 200); // CONFIRM IT ALL
+  // CONFIRM IT ALL
+  await tapName("CROSS", 200);
   await sleep(250);
 
   await tapName("CIRCLE", 200);
@@ -632,7 +628,7 @@ async function main() {
       );
       await sleep(startIn);
 
-      for (let i = 3; i < rows.length; i++) {
+      for (let i = 20; i < rows.length; i++) {
         if (signal.aborted) break;
 
         const row = rows[i] || {};
@@ -660,15 +656,7 @@ async function main() {
 
           await runMenuScript(script, "enter");
 
-          await runPlacement({
-            target_x: location.x,
-            target_y: location.y,
-            target_z: location.z,
-            vrot_x: rotation.x ?? 0,
-            vrot_y: rotation.y ?? 0,
-            vrot_z: rotation.z ?? 0,
-            speed
-          });
+          await runPlacement();
 
           await runMenuScript(script, "exit");
         } catch (err) {
