@@ -4,8 +4,6 @@ import { captureRegion } from "./capture-window.js";
 import { extractText } from "./ocr-text.js";
 import parseTrackData from "./trackParser.js";
 
-
-
 // ---------------- Abort (single listener) ----------------
 const ac = new AbortController();
 const { signal } = ac;
@@ -102,12 +100,12 @@ function travelTimeMs(start, target, speed) {
   const distance = Math.abs(target - start);
 
   console.log(
-  `----------------------\n` +
-  `Current: ${start}\n` +
-  `Target: ${target}\n` +
-  `Difference: ${distance}\n` +
-  `Travel Time: ${(distance / speed) * 1000}`
-);
+    `----------------------\n` +
+      `Current: ${start}\n` +
+      `Target: ${target}\n` +
+      `Difference: ${distance}\n` +
+      `Travel Time: ${(distance / speed) * 1000}`
+  );
 
   return (distance / speed) * 1000;
 }
@@ -122,7 +120,7 @@ function toFinite(n, fallback = 0) {
 function normSigned(a) {
   a = toFinite(a, 0);
   const r = ((a % 360) + 360) % 360; // [0, 360)
-  return r > 180 ? r - 360 : r;      // (-180, 180]
+  return r > 180 ? r - 360 : r; // (-180, 180]
 }
 
 /**
@@ -133,7 +131,13 @@ function normSigned(a) {
  *
  * If target is NaN/undefined, we treat it as current (delta=0).
  */
-async function moveRotationSmart(current, target, speed, axis = "rot", epsilon = 1e-3) {
+async function moveRotationSmart(
+  current,
+  target,
+  speed,
+  axis = "rot",
+  epsilon = 1e-3
+) {
   if (signal.aborted) throw new Error("aborted");
 
   console.log(current);
@@ -147,7 +151,8 @@ async function moveRotationSmart(current, target, speed, axis = "rot", epsilon =
   let delta = normSigned(tgt - cur);
 
   // Treat near-0 and near-±180 as zero movement
-  const isZeroish = Math.abs(delta) < epsilon || Math.abs(Math.abs(delta) - 180) < epsilon;
+  const isZeroish =
+    Math.abs(delta) < epsilon || Math.abs(Math.abs(delta) - 180) < epsilon;
 
   // Travel time (0 if speed invalid or no movement)
   let ttms = 0;
@@ -170,14 +175,21 @@ async function moveRotationSmart(current, target, speed, axis = "rot", epsilon =
   }
 
   if (delta > 0) {
-    console.log(`${axis.toUpperCase()}: rotating RIGHT ${deltaForLog.toFixed(3)}° for ${ttms.toFixed(0)} ms`);
+    console.log(
+      `${axis.toUpperCase()}: rotating RIGHT ${deltaForLog.toFixed(
+        3
+      )}° for ${ttms.toFixed(0)} ms`
+    );
     await tapName("DPAD_RIGHT", ttms);
   } else {
-    console.log(`${axis.toUpperCase()}: rotating LEFT ${Math.abs(deltaForLog).toFixed(3)}° for ${ttms.toFixed(0)} ms`);
+    console.log(
+      `${axis.toUpperCase()}: rotating LEFT ${Math.abs(deltaForLog).toFixed(
+        3
+      )}° for ${ttms.toFixed(0)} ms`
+    );
     await tapName("DPAD_LEFT", ttms);
   }
 }
-
 
 async function moveAxis(current, target, speed, axis = "x") {
   if (signal.aborted) throw new Error("aborted");
@@ -239,13 +251,13 @@ async function runTubeCorner30D({
   keyDownName("TRIANGLE");
 
   // X AXIS - Location
-  await captureRegion({
-    out: "x.png",
+  const { buffer: xBuf } = await captureRegion({
+    // out: "x.png",
     screenIndex: 1,
     region: { left: 760, top: 168, width: 140, height: 35 },
   });
 
-  const xtxt = await extractText("x.png", {
+  const xtxt = await extractText(xBuf, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
   });
@@ -257,14 +269,14 @@ async function runTubeCorner30D({
   await sleep(500);
 
   // Y AXIS - Location
-  await captureRegion({
-    out: "y.png",
+  const { buffer: yBuf } = await captureRegion({
+    // out: "y.png",
     screenIndex: 1,
-    //760 204 160 35
+    //760 204 160 3
     region: { left: 760, top: 204, width: 140, height: 35 },
   });
 
-  const ytxt = await extractText("y.png", {
+  const ytxt = await extractText(yBuf, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
   });
@@ -276,14 +288,14 @@ async function runTubeCorner30D({
   await sleep(500);
 
   // Z AXIS - Location
-  await captureRegion({
-    out: "z.png",
+  const { buffer: zBuf } = await captureRegion({
+    // out: "z.png",
     screenIndex: 1,
     // 760 244 140 35
     region: { left: 760, top: 244, width: 140, height: 35 },
   });
 
-  const ztxt = await extractText("z.png", {
+  const ztxt = await extractText(zBuf, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
   });
@@ -308,20 +320,19 @@ async function runTubeCorner30D({
 
   await repeat("DPAD_DOWN", 2);
 
-
   console.log("\n===============\nROTATION\n===============\n");
 
-    // HOLD TRIANGLE TO SPEED SHIT UP
+  // HOLD TRIANGLE TO SPEED SHIT UP
   keyDownName("TRIANGLE");
 
-  await captureRegion({
-    out: "vrot_x.png",
+ const { buffer: vrot_x_buff } =  await captureRegion({
+   // out: "vrot_x.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 168, width: 140, height: 35 },
   });
 
-  const current_vrotx = await extractText("vrot_x.png", {
+  const current_vrotx = await extractText(vrot_x_buff, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
   });
@@ -330,16 +341,15 @@ async function runTubeCorner30D({
   await sleep(500);
 
   await tapName("DPAD_DOWN", 200);
-  
 
-  await captureRegion({
-    out: "vrot_y.png",
+  const { buffer: vrot_y_buff } = await captureRegion({
+   // out: "vrot_y.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 204, width: 140, height: 35 },
   });
 
-  const current_vroty = await extractText("vrot_y.png", {
+  const current_vroty = await extractText(vrot_y_buff, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
   });
@@ -349,22 +359,21 @@ async function runTubeCorner30D({
 
   await tapName("DPAD_DOWN", 200);
 
-  await captureRegion({
-    out: "vrot_z.png",
+  const { buffer: vrot_z_buff } = await captureRegion({
+   // out: "vrot_z.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 242, width: 140, height: 35 },
   });
 
-  const current_vrotz = await extractText("vrot_z.png", {
+  const current_vrotz = await extractText(vrot_z_buff, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
   });
 
-
   console.log(current_vrotz);
 
-  await moveRotationSmart(current_vrotz,vrot_z,  60, "z");
+  await moveRotationSmart(current_vrotz, vrot_z, 60, "z");
   await sleep(500);
 
   // RElEASE TRIANGLE
@@ -394,7 +403,9 @@ async function main() {
 
       const startIn = 5000;
       console.log(
-        `Loaded ${rows.length} rows. Starting in ${startIn/1000}'s... press Q to quit.`
+        `Loaded ${rows.length} rows. Starting in ${
+          startIn / 1000
+        }'s... press Q to quit.`
       );
       await sleep(startIn);
 
@@ -404,11 +415,16 @@ async function main() {
         const row = rows[i] || {};
         const { model, location, rotation } = row;
 
-        if(model !==2138176025)
-        {
-         console.log("\x1b[31m");
-          console.warn(`Model ${model} missing.`);
-         console.log("\x1b[0m");
+        const modelId = Math.abs(model);
+
+        if (
+          modelId !== 2144125188 &&
+          modelId !== 2102185892 &&
+          modelId !== 2138176025
+        ) {
+          console.log("\x1b[31m");
+          console.warn(`Model ${modelId} missing.`);
+          console.log("\x1b[0m");
           continue;
         }
 
@@ -417,13 +433,25 @@ async function main() {
           continue;
         }
 
-        console.log(`\n▶ Row ${i + 1}/${rows.length} model=${model}`);
+        console.log(`\n▶ Row ${i + 1}/${rows.length} model=${modelId}`);
 
         console.log(rotation.x);
-           console.log(rotation.y);
-           console.log(rotation.z);
-        
+        console.log(rotation.y);
+        console.log(rotation.z);
+
         try {
+          /*
+          await runModelFromFile("./modelCommands/commands.json", modelId, {
+          target_x: location.x,
+            target_y: location.y,
+            target_z: location.z,
+            vrot_x: rotation.x ?? 0,
+            vrot_y: rotation.y ?? 0,
+            vrot_z: rotation.z ?? 0,
+            speed,
+          });
+*/
+
           await runTubeCorner30D({
             target_x: location.x,
             target_y: location.y,
@@ -461,7 +489,6 @@ async function main() {
     process.exit(0);
   }
 }
-
 
 /**
  * Convert angle from [-180, 180] to [0, 360)

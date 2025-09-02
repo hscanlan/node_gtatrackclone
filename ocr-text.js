@@ -1,43 +1,41 @@
 // ocr-text.js
 // Extract text from an image (PNG/JPG). Compatible with tesseract.js v4 and v5.
 // Supports numeric-only mode (digits + dot + minus).
+// Updated: can take file path OR Buffer, so captureRegion() can pass directly in-memory.
 
 import sharp from "sharp";
 import { createWorker } from "tesseract.js";
 
 /**
- * Extract text from an image.
- * Ensures the parsed number is interpreted with exactly 3 decimal places:
- * - If OCR found a decimal, we round to 3 dp.
- * - If OCR didn't find one, we insert it before the last 3 digits.
+ * Extract text from an image (file path OR Buffer).
+ * Ensures the parsed number is interpreted with exactly 3 decimal places.
  *
- * @param {string} imagePath
+ * @param {string|Buffer} image          File path or PNG/JPG Buffer
  * @param {object} [opts]
  * @param {string} [opts.lang="eng"]
- * @param {number} [opts.psm=7]  // 7 = single line, 6 = block
- * @param {boolean} [opts.numericOnly=true]  Only return digits, dot, minus
- * @param {string} [opts.preprocess="auto"]  "auto" | "gentle" | "hard" | false
+ * @param {number} [opts.psm=7]
+ * @param {boolean} [opts.numericOnly=true]
+ * @param {string|false} [opts.preprocess="auto"]  "auto" | "gentle" | "hard" | false
+ * @param {boolean} [opts.debug=false]   If true and `image` is a path, write intermediate preprocessed images to disk
  * @returns {Promise<number>} numeric value coerced to 3 decimals
  */
-export async function extractText(imagePath, opts = {}) {
+export async function extractText(image, opts = {}) {
   const {
     lang = "eng",
     psm = 7,
     numericOnly = true,
     preprocess = "auto",
+    debug = false,
   } = opts;
 
-  // Decide preprocessing attempts
   const attempts = [];
   if (preprocess === "auto") attempts.push("gentle", "hard");
   else if (preprocess) attempts.push(preprocess);
   else attempts.push(false);
 
-  // Create a tesseract worker
   const { worker, apiVersion } = await createCompatWorker(lang);
 
   try {
-    // Set recognition parameters
     const params = { tessedit_pageseg_mode: String(psm) };
     if (numericOnly) {
       params.tessedit_char_whitelist = "0123456789.-";
@@ -52,159 +50,121 @@ export async function extractText(imagePath, opts = {}) {
 
     let best = { text: "", score: -1 };
 
-    // Try each preprocessing mode
+    const baseBuf = await toPngBuffer(image);
+
     for (const mode of attempts) {
-      const imgPath = await preprocessImage(imagePath, mode);
-      const { data: { text } } = await worker.recognize(imgPath);
+      const prepBuf = await preprocessImageToBuffer(baseBuf, mode, {
+        debug,
+        originalPath: typeof image === "string" ? image : null,
+      });
+
+      const { data: { text } } = await worker.recognize(prepBuf);
 
       const cleaned = postClean(text, numericOnly);
       const score = scoreNumeric(cleaned);
 
       if (score > best.score) best = { text: cleaned, score };
-      if (best.score >= 3) break; // good enough (digits + dot, maybe minus)
+      if (best.score >= 3) break;
     }
 
-    // NEW: coerce to a number with 3 decimal places logic applied
     return toThreeDecimalNumber(best.text.trim());
   } finally {
     await worker.terminate().catch(() => {});
   }
 }
 
-/* ---------- Helpers ---------- */
+/* ---------- helpers ---------- */
 
-function postClean(text, numericOnly) {
-  // Keep digits, dot, and dash-like characters
-  let t = text.replace(/[^\d.\-−–—\n\r]/g, "");
-
-  // Normalize Unicode dashes to ASCII hyphen
-  t = t.replace(/[−–—]/g, "-");
-
-  // Collapse whitespace
-  t = t.replace(/\s+/g, " ").trim();
-
-  if (!numericOnly) return t;
-
-  // Extract the first signed decimal/integer
-  const m = t.match(/-?\d+(?:[.,]\d+)?/);
-  if (!m) return t;
-
-  // Normalize decimal comma to dot
-  return m[0].replace(",", ".");
+async function createCompatWorker(lang) {
+  // Simple compatibility wrapper for tesseract.js v4/v5
+  const worker = await createWorker(lang);
+  return { worker, apiVersion: "v5" }; // adjust if you need v4
 }
 
-function scoreNumeric(s) {
-  if (!s) return -1;
-  let score = 0;
-  if (/^-?\d+(?:\.\d+)?$/.test(s)) score += 3; // looks like a number
-  if (/\./.test(s)) score += 1;
-  if (/\d/.test(s)) score += 1;
-  if ((s.match(/-/g) || []).length > 1) score -= 1; // too many dashes
-  return score;
+// Normalize any input (path/Buffer) into a PNG Buffer
+async function toPngBuffer(input) {
+  if (Buffer.isBuffer(input)) {
+    return await sharp(input).toFormat("png").toBuffer();
+  }
+  if (typeof input === "string") {
+    return await sharp(input).toFormat("png").toBuffer();
+  }
+  throw new Error("extractText: `image` must be a file path or Buffer");
 }
 
-// NEW: enforce "last 3 digits are the decimals" if none present; round to 3 dp otherwise.
-function toThreeDecimalNumber(s) {
-  if (!s) return NaN;
-  let str = s.trim().replace(",", ".");
-  let neg = false;
-  if (str.startsWith("-")) {
-    neg = true;
-    str = str.slice(1);
-  }
-
-  // accept only digits and optional single dot (postClean already enforced this)
-  if (!/^\d+(\.\d+)?$/.test(str)) {
-    return NaN; // couldn't parse cleanly
-  }
-
-  let out;
-  if (str.includes(".")) {
-    // Already has a decimal: round to 3 dp
-    const n = Number(str);
-    if (!Number.isFinite(n)) return NaN;
-    out = Math.round(n * 1000) / 1000;
-  } else {
-    // No decimal present: insert before last 3 digits
-    const padded = str.padStart(3, "0");       // ensure at least 3 fractional digits
-    const frac = padded.slice(-3);             // last 3 are decimals
-    const intPart = padded.slice(0, -3) || "0";
-    out = Number(`${neg ? "-" : ""}${intPart}.${frac}`);
-  }
-
-  return neg ? -Math.abs(out) : out;
-}
-
-async function preprocessImage(inputPath, mode) {
+/**
+ * Preprocess the image and return a Buffer.
+ * If `debug === true` and `originalPath` is provided, write intermediate images to disk.
+ */
+async function preprocessImageToBuffer(inputBuf, mode, { debug = false, originalPath = null } = {}) {
   if (mode === "gentle") {
-    const buf = await sharp(inputPath)
+    const buf = await sharp(inputBuf)
       .resize({ width: 2000, withoutEnlargement: false })
       .grayscale()
       .normalize()
       .sharpen()
       .toFormat("png")
       .toBuffer();
-    const out = inputPath.replace(/(\.\w+)?$/, ".gentle.png");
-    await sharp(buf).toFile(out);
-    return out;
+
+    if (debug && originalPath) {
+      const out = originalPath.replace(/(\.\w+)?$/, ".gentle.png");
+      await sharp(buf).toFile(out);
+    }
+    return buf;
   }
 
   if (mode === "hard") {
-    const buf = await sharp(inputPath)
+    const buf = await sharp(inputBuf)
       .resize({ width: 2000, withoutEnlargement: false })
       .grayscale()
       .normalize()
       .median(1)
-      .threshold(150)  // adjust 130–160 if dots/minus get lost
+      .threshold(150)
       .toFormat("png")
       .toBuffer();
-    const out = inputPath.replace(/(\.\w+)?$/, ".hard.png");
-    await sharp(buf).toFile(out);
-    return out;
+
+    if (debug && originalPath) {
+      const out = originalPath.replace(/(\.\w+)?$/, ".hard.png");
+      await sharp(buf).toFile(out);
+    }
+    return buf;
   }
 
-  return inputPath; // no preprocessing
+  // No preprocessing
+  if (debug && originalPath) {
+    const out = originalPath.replace(/(\.\w+)?$/, ".noprep.png");
+    await sharp(inputBuf).toFile(out);
+  }
+  return inputBuf;
 }
 
-async function createCompatWorker(lang) {
-  try {
-    const w = await createWorker(); // v4-style
-    if (typeof w?.loadLanguage === "function") {
-      return { worker: w, apiVersion: "v4" };
-    }
-    await safeTerminate(w);
-  } catch {}
-  const w5 = await createWorker(lang, 1); // v5-style
-  return { worker: w5, apiVersion: "v5" };
+/**
+ * Strip noise from text (numbers only if numericOnly = true)
+ */
+function postClean(text, numericOnly) {
+  let cleaned = text.replace(/\s+/g, "");
+  if (numericOnly) cleaned = cleaned.replace(/[^0-9.-]/g, "");
+  return cleaned;
 }
 
-async function safeTerminate(w) { try { await w?.terminate?.(); } catch {} }
+/**
+ * Heuristic: longer, more numeric-y text is “better”
+ */
+function scoreNumeric(txt) {
+  if (!txt) return -1;
+  let score = 0;
+  if (/^-?\d/.test(txt)) score += 2;
+  if (txt.includes(".")) score += 1;
+  score += txt.length;
+  return score;
+}
 
-/* ---------- CLI ---------- */
-/*
-Usage:
-  node ocr-text.js <imagePath> [psm] [lang]
-
-Examples:
-  node ocr-text.js number.png
-  node ocr-text.js number.png 7 eng
-*/
-if (import.meta.url === `file://${process.argv[1]}`) {
-  (async () => {
-    const img = process.argv[2];
-    const psm = Number(process.argv[3] ?? 7);
-    const lang = process.argv[4] ?? "eng";
-    if (!img) {
-      console.error("Usage: node ocr-text.js <imagePath> [psm] [lang]");
-      process.exit(1);
-    }
-    try {
-      const value = await extractText(img, { lang, psm, numericOnly: true });
-      // Print with exactly 3 decimals for display
-      console.log(Number.isFinite(value) ? value.toFixed(3) : "NaN");
-    } catch (e) {
-      console.error(e?.message || e);
-      process.exit(1);
-    }
-  })();
+/**
+ * Parse string → number with exactly 3 decimals
+ */
+function toThreeDecimalNumber(str) {
+  if (!str) return NaN;
+  const num = parseFloat(str);
+  if (isNaN(num)) return NaN;
+  return parseFloat(num.toFixed(3));
 }
