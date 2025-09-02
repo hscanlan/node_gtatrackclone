@@ -1,0 +1,436 @@
+[
+  {
+    "modelNumber": 2138176025,
+    "hashUnsigned": 2138176025,
+    "hashHex": "0x7F71FA19",
+    "modelName": "stt_prop_stunt_tube_crn_30d",
+    "inGameLabel": "Tube Corner 30°",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tubes",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 8 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1125864094,
+    "hashUnsigned": 1125864094,
+    "hashHex": "0x431B529E",
+    "modelName": "stt_prop_stunt_tube_xxs",
+    "inGameLabel": "Tube (Tiny / XXS)",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tubes",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1006944385,
+    "hashUnsigned": 1006944385,
+    "hashHex": "0x3C04C081",
+    "modelName": "stt_prop_track_bend_180d",
+    "inGameLabel": "Track Bend 180D°",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Track",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 22 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 1 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1533556199,
+    "hashUnsigned": 1533556199,
+    "hashHex": "0x5B6835E7",
+    "modelName": "stt_prop_stunt_tube_crn_15d",
+    "inGameLabel": "Tube Corner 15°",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tubes",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 7 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1124049486,
+    "hashUnsigned": 1124049486,
+    "hashHex": "0x42FFA24E",
+    "modelName": "stt_prop_stunt_tube_xs",
+    "inGameLabel": "Tube (Extra Small)",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tubes",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 7 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1337911167,
+    "hashUnsigned": 1337911167,
+    "hashHex": "0x4FBEE77F",
+    "modelName": "stt_prop_stunt_tube_crn_5d",
+    "inGameLabel": "Tube Corner 5°",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tubes",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 2081936690,
+    "hashUnsigned": 2081936690,
+    "hashHex": "0x7C17D532",
+    "modelName": "stt_prop_stunt_tube_s",
+    "inGameLabel": "Tube (Standard)",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tubes",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 364582714,
+    "hashUnsigned": 364582714,
+    "hashHex": "0x15BB173A",
+    "modelName": "stt_prop_stunt_bblock_sml2",
+    "inGameLabel": "Block 2×2 (Small 2)",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Building Blocks",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 11 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 1 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 11 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": -2102185892,
+    "hashUnsigned": 2192781404,
+    "hashHex": "0x82B3305C",
+    "modelName": "stt_prop_stunt_bblock_lrg3",
+    "inGameLabel": "Block 3×4 (Large 3)",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Building Blocks",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 11 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 8 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 11 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": -259572998,
+    "hashUnsigned": 4035394298,
+    "hashHex": "0xF0873AFA",
+    "modelName": "imp_prop_groupbarrel_03",
+    "inGameLabel": "Explosive Barrel Stack 3",
+    "cat": "Dynamic",
+    "subcat": "",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 1 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 24 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 24 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": -1629331537,
+    "hashUnsigned": 2665635759,
+    "hashHex": "0x9EE25FAF",
+    "modelName": "stt_prop_track_straight_s",
+    "inGameLabel": "Track Straight Short",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Track",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 13 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 1 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1670637843,
+    "hashUnsigned": 1670637843,
+    "hashHex": "0x6393E913",
+    "modelName": "stt_prop_track_straight_m",
+    "inGameLabel": "Track Straight Medium",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tracks",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 14 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 1 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 658053636,
+    "hashUnsigned": 658053636,
+    "hashHex": "0x27391A04",
+    "modelName": "sr_prop_sr_tube_end",
+    "inGameLabel": "Tube End (Hole)",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tubes",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 4 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 6 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1151630586,
+    "hashUnsigned": 1151630586,
+    "hashHex": "0x449F7C0A",
+    "modelName": "stt_prop_stunt_bblock_huge_01",
+    "inGameLabel": "Stunt Block Huge 1",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Blocks",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 278438319,
+    "hashUnsigned": 278438319,
+    "hashHex": "0x109AF6AF",
+    "modelName": "stt_prop_stunt_bblock_xl3",
+    "inGameLabel": "Stunt Block XL 3",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Blocks",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 1575467428,
+    "hashUnsigned": 1575467428,
+    "hashHex": "0x5DFF7C04",
+    "modelName": "sr_mp_spec_races_blimp_sign",
+    "inGameLabel": "Xero Blimp Sign",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Signs",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 15 },
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 9 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 15 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1660121300,
+    "hashUnsigned": 1660121300,
+    "hashHex": "0x62F370D4",
+    "modelName": "ba_prop_track_straight_lm",
+    "inGameLabel": "Track Straight Medium-Large",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Track",
+    "menuCommands": [
+      {
+        "enter": [
+          { "op": "repeat", "key": "DPAD_DOWN", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 15 },
+          { "op": "sleep", "ms": 2000 }
+        ]
+      },
+      {
+        "exit": [
+          { "op": "repeat", "key": "DPAD_UP", "times": 1 },
+          { "op": "repeat", "key": "DPAD_RIGHT", "times": 1 },
+          { "op": "repeat", "key": "DPAD_LEFT", "times": 1 }
+        ]
+      }
+    ]
+  },
+  {
+    "modelNumber": 1072941776,
+    "hashUnsigned": 1072941776,
+    "hashHex": "0x3FF59450",
+    "modelName": "stt_prop_stunt_soccer_ball",
+    "inGameLabel": "Stunt Soccer Ball",
+    "cat": "Stunt Props",
+    "subcat": "Sports",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 617857480,
+    "hashUnsigned": 617857480,
+    "hashHex": "0x24CC16C8",
+    "modelName": "stt_prop_stunt_soccer_lball",
+    "inGameLabel": "Stunt Soccer Large Ball",
+    "cat": "Stunt Props",
+    "subcat": "Sports",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 42399216,
+    "hashUnsigned": 42399216,
+    "hashHex": "0x0286F5F0",
+    "modelName": "stt_prop_stunt_soccer_sball",
+    "inGameLabel": "Stunt Soccer Small Ball",
+    "cat": "Stunt Props",
+    "subcat": "Sports",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 600369530,
+    "hashUnsigned": 600369530,
+    "hashHex": "0x23C8E97A",
+    "modelName": "stt_prop_track_straight_l",
+    "inGameLabel": "Track Straight (L)",
+    "cat": "Stunt Props",
+    "subcat": "Stunt Tracks",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 1399999408,
+    "hashUnsigned": 1399999408,
+    "hashHex": "0x53724BB0",
+    "modelName": "stt_prop_stunt_bowling_ball",
+    "inGameLabel": "Stunt Bowling Ball",
+    "cat": "Stunt Props",
+    "subcat": "Sports",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 1894747351,
+    "hashUnsigned": 1894747351,
+    "hashHex": "0x70F774D7",
+    "modelName": "as_prop_as_tube_gap_02",
+    "inGameLabel": "AS Tube Gap 02",
+    "cat": "After Hours Props",
+    "subcat": "",
+    "menuCommands": []
+  },
+  {
+    "modelNumber": 2144125188,
+    "hashUnsigned": 2144125188,
+    "hashHex": "0x7FCCC104",
+    "modelName": "ar_prop_ar_tube_xs",
+    "inGameLabel": "Arena Tube XS",
+    "cat": "Arena War Props",
+    "subcat": "",
+    "menuCommands": []
+  }
+]

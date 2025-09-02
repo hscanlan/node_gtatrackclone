@@ -1,8 +1,10 @@
 // cloneJob.js
 import robot from "robotjs";
+import fs from "fs/promises";
 import { captureRegion } from "./capture-window.js";
 import { extractText } from "./ocr-text.js";
 import parseTrackData from "./trackParser.js";
+import MenuScript from "./classes/MenuScript.js"; // note the .js extension
 
 // ---------------- Abort (single listener) ----------------
 const ac = new AbortController();
@@ -215,6 +217,47 @@ async function repeat(name, times, holdMs = 200) {
   }
 }
 
+const DEFAULT_TAP_MS = 200;
+
+async function runCmd(step) {
+  if (step.op === "repeat") {
+    const times = Number(step.times) || 0;
+    if (times > 0) await repeat(step.key, times);
+  } else if (step.op === "tap") {
+    const delay = step.ms != null ? Number(step.ms) : DEFAULT_TAP_MS;
+    await tapName(step.key, delay);
+  } else if (step.op === "sleep") {
+    await sleep(Number(step.ms) || 0);
+  }
+}
+
+async function runBlock(steps = []) {
+  for (const s of steps) {
+    await runCmd(s);
+  }
+}
+
+/**
+ * Run a specific block by name (e.g., "enter", "exit", "rotate", "place"…).
+ *
+ * @param {MenuScript} script
+ * @param {string} blockName
+ */
+export async function runMenuScript(script, blockName) {
+  if (!script || !blockName) {
+    throw new Error("runMenuScript requires a script and a block name");
+  }
+
+  // menuCommands is like: [ { enter: [...] }, { exit: [...] }, { rotate: [...] } ]
+  const block = script.menuCommands.find((b) => b[blockName]);
+  if (!block) {
+    console.warn(`No "${blockName}" block defined for ${script.modelName}`);
+    return;
+  }
+
+  await runBlock(block[blockName]);
+}
+
 // ---------------- Main sequence ----------------
 async function runTubeCorner30D({
   target_x,
@@ -325,8 +368,8 @@ async function runTubeCorner30D({
   // HOLD TRIANGLE TO SPEED SHIT UP
   keyDownName("TRIANGLE");
 
- const { buffer: vrot_x_buff } =  await captureRegion({
-   // out: "vrot_x.png",
+  const { buffer: vrot_x_buff } = await captureRegion({
+    // out: "vrot_x.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 168, width: 140, height: 35 },
@@ -343,7 +386,7 @@ async function runTubeCorner30D({
   await tapName("DPAD_DOWN", 200);
 
   const { buffer: vrot_y_buff } = await captureRegion({
-   // out: "vrot_y.png",
+    // out: "vrot_y.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 204, width: 140, height: 35 },
@@ -360,7 +403,7 @@ async function runTubeCorner30D({
   await tapName("DPAD_DOWN", 200);
 
   const { buffer: vrot_z_buff } = await captureRegion({
-   // out: "vrot_z.png",
+    // out: "vrot_z.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 242, width: 140, height: 35 },
@@ -401,6 +444,18 @@ async function main() {
         root: "mission",
       });
 
+      const raw = await fs.readFile(
+        new URL("./commands/propMenu.json", import.meta.url),
+        "utf-8"
+      );
+      const data = JSON.parse(raw);
+
+      // Turn plain objects into MenuScript instances
+      const scripts = data.map(
+        (s) =>
+          new MenuScript(Math.abs(s.modelNumber), s.modelName, s.menuCommands)
+      );
+
       const startIn = 5000;
       console.log(
         `Loaded ${rows.length} rows. Starting in ${
@@ -409,64 +464,39 @@ async function main() {
       );
       await sleep(startIn);
 
-      for (let i = 0; i < rows.length; i++) {
+      for (let i = 72; i < rows.length; i++) {
         if (signal.aborted) break;
 
         const row = rows[i] || {};
-        const { model, location, rotation } = row;
-
-        const modelId = Math.abs(model);
-
-        if (
-          modelId !== 2144125188 &&
-          modelId !== 2102185892 &&
-          modelId !== 2138176025
-        ) {
-          console.log("\x1b[31m");
-          console.warn(`Model ${modelId} missing.`);
-          console.log("\x1b[0m");
-          continue;
-        }
+        const { model, location, rotation, modelName } = row;
+        const modelNumber = model;
 
         if (!location || !rotation) {
           console.warn(`Row ${i}: missing location/rotation; skipping.`);
           continue;
         }
 
-        console.log(`\n▶ Row ${i + 1}/${rows.length} model=${modelId}`);
-
-        console.log(rotation.x);
-        console.log(rotation.y);
-        console.log(rotation.z);
-
         try {
-          /*
-          await runModelFromFile("./modelCommands/commands.json", modelId, {
-          target_x: location.x,
-            target_y: location.y,
-            target_z: location.z,
-            vrot_x: rotation.x ?? 0,
-            vrot_y: rotation.y ?? 0,
-            vrot_z: rotation.z ?? 0,
-            speed,
-          });
-*/
+          const script = scripts.find((s) => s.modelNumber === modelNumber);
+          if (!script) {
+            console.error(`No script found for modelNumber ${modelNumber}`);
+            continue;
+          }
 
-          await runTubeCorner30D({
-            target_x: location.x,
-            target_y: location.y,
-            target_z: location.z,
-            vrot_x: rotation.x ?? 0,
-            vrot_y: rotation.y ?? 0,
-            vrot_z: rotation.z ?? 0,
-            speed,
-          });
+          console.log(
+            `\n▶ Row ${i + 1}/${
+              rows.length
+            } model: ${modelNumber} name: ${script.modelName}`
+          );
+          console.log(rotation.x, rotation.y, rotation.z);
+
+          await runMenuScript(script, "enter");
+          await runMenuScript(script, "exit");
         } catch (err) {
-          if (err?.message === "aborted") throw err; // bubble up abort
+          if (err?.message === "aborted") throw err;
           console.error(`Row ${i}: error:`, err?.message || err);
         }
 
-        // small pacing gap between rows
         await sleep(250);
       }
     } catch (err) {
