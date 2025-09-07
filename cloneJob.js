@@ -295,7 +295,7 @@ async function runTubeCorner30D({
 
   // X AXIS - Location
   const { buffer: xBuf } = await captureRegion({
-    // out: "x.png",
+    out: "x.png",
     screenIndex: 1,
     region: { left: 760, top: 168, width: 140, height: 35 },
   });
@@ -313,7 +313,7 @@ async function runTubeCorner30D({
 
   // Y AXIS - Location
   const { buffer: yBuf } = await captureRegion({
-    // out: "y.png",
+    out: "y.png",
     screenIndex: 1,
     //760 204 160 3
     region: { left: 760, top: 204, width: 140, height: 35 },
@@ -332,7 +332,7 @@ async function runTubeCorner30D({
 
   // Z AXIS - Location
   const { buffer: zBuf } = await captureRegion({
-    // out: "z.png",
+    out: "z.png",
     screenIndex: 1,
     // 760 244 140 35
     region: { left: 760, top: 244, width: 140, height: 35 },
@@ -369,7 +369,7 @@ async function runTubeCorner30D({
   keyDownName("TRIANGLE");
 
   const { buffer: vrot_x_buff } = await captureRegion({
-    // out: "vrot_x.png",
+    out: "vrot_x.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 168, width: 140, height: 35 },
@@ -386,7 +386,7 @@ async function runTubeCorner30D({
   await tapName("DPAD_DOWN", 200);
 
   const { buffer: vrot_y_buff } = await captureRegion({
-    // out: "vrot_y.png",
+    out: "vrot_y.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 204, width: 140, height: 35 },
@@ -403,7 +403,7 @@ async function runTubeCorner30D({
   await tapName("DPAD_DOWN", 200);
 
   const { buffer: vrot_z_buff } = await captureRegion({
-    // out: "vrot_z.png",
+    out: "vrot_z.png",
     screenIndex: 1,
     // 708 168 140 35
     region: { left: 708, top: 242, width: 140, height: 35 },
@@ -412,6 +412,7 @@ async function runTubeCorner30D({
   const current_vrotz = await extractText(vrot_z_buff, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
+    debug: true
   });
 
   console.log(current_vrotz);
@@ -444,7 +445,6 @@ async function runPlacement({
   vrot_z,
   speed,
 }) {
-
   var current_x = 0;
   var current_y = 0;
   var current_z = 0;
@@ -473,6 +473,7 @@ async function runPlacement({
   const xtxt = await extractText(xBuf, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
+     debug: true
   });
 
   current_x = Number(xtxt);
@@ -492,6 +493,7 @@ async function runPlacement({
   const ytxt = await extractText(yBuf, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
+     debug: true
   });
 
   current_y = Number(ytxt);
@@ -511,6 +513,7 @@ async function runPlacement({
   const ztxt = await extractText(zBuf, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
+     debug: true
   });
 
   current_z = Number(ztxt);
@@ -548,6 +551,7 @@ async function runPlacement({
   const current_vrotx = await extractText(vrot_x_buff, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
+     debug: true
   });
 
   await moveRotationSmart(current_vrotx, vrot_y, 60, "x");
@@ -565,6 +569,7 @@ async function runPlacement({
   const current_vroty = await extractText(vrot_y_buff, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
+     debug: true
   });
 
   await moveRotationSmart(current_vroty, vrot_x, 60, "y");
@@ -582,6 +587,7 @@ async function runPlacement({
   const current_vrotz = await extractText(vrot_z_buff, {
     numericOnly: true, // keep only 0-9 and dot
     psm: 7, // single line
+     debug: true
   });
 
   console.log(current_vrotz);
@@ -592,7 +598,6 @@ async function runPlacement({
   // RElEASE TRIANGLE
   keyUpName("TRIANGLE");
 
-  
   await tapName("CROSS", 200); // CONFIRM IT ALL
   await sleep(250);
 
@@ -632,7 +637,7 @@ async function main() {
       );
       await sleep(startIn);
 
-      for (let i = 3; i < rows.length; i++) {
+      for (let i = 9; i < rows.length; i++) {
         if (signal.aborted) break;
 
         const row = rows[i] || {};
@@ -667,7 +672,7 @@ async function main() {
             vrot_x: rotation.x ?? 0,
             vrot_y: rotation.y ?? 0,
             vrot_z: rotation.z ?? 0,
-            speed
+            speed,
           });
 
           await runMenuScript(script, "exit");

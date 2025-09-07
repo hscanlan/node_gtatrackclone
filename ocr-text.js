@@ -1,10 +1,11 @@
 // ocr-text.js
 // Extract text from an image (PNG/JPG). Compatible with tesseract.js v4 and v5.
 // Supports numeric-only mode (digits + dot + minus).
-// Updated: can take file path OR Buffer, so captureRegion() can pass directly in-memory.
+// Updated: accepts file path OR Buffer. Saves debug images with meaningful names + timestamp.
 
 import sharp from "sharp";
 import { createWorker } from "tesseract.js";
+import path from "path";
 
 /**
  * Extract text from an image (file path OR Buffer).
@@ -16,7 +17,8 @@ import { createWorker } from "tesseract.js";
  * @param {number} [opts.psm=7]
  * @param {boolean} [opts.numericOnly=true]
  * @param {string|false} [opts.preprocess="auto"]  "auto" | "gentle" | "hard" | false
- * @param {boolean} [opts.debug=false]   If true and `image` is a path, write intermediate preprocessed images to disk
+ * @param {boolean} [opts.debug=false]   If true, write the base & preprocessed images to disk
+ * @param {string}  [opts.debugName]     Optional logical name prefix for debug files
  * @returns {Promise<number>} numeric value coerced to 3 decimals
  */
 export async function extractText(image, opts = {}) {
@@ -26,6 +28,7 @@ export async function extractText(image, opts = {}) {
     numericOnly = true,
     preprocess = "auto",
     debug = false,
+    debugName,
   } = opts;
 
   const attempts = [];
@@ -50,15 +53,27 @@ export async function extractText(image, opts = {}) {
 
     let best = { text: "", score: -1 };
 
+    // Normalize input once
     const baseBuf = await toPngBuffer(image);
 
-    for (const mode of attempts) {
-      const prepBuf = await preprocessImageToBuffer(baseBuf, mode, {
-        debug,
-        originalPath: typeof image === "string" ? image : null,
-      });
+    // Save base (no-prep) if debugging
+    const stamp = Date.now();
+    const baseName = makeDebugBaseName(image, debugName);
+    if (debug) {
+      await saveDebugImage(baseBuf, `./screencaps/${baseName}_base_${stamp}.png`);
+    }
 
-      const { data: { text } } = await worker.recognize(prepBuf);
+    for (const mode of attempts) {
+      const prepBuf = await preprocessImageToBuffer(baseBuf, mode);
+
+      if (debug) {
+        const tag = mode || "noprep";
+        await saveDebugImage(prepBuf, `./screencaps/${baseName}_${tag}_${stamp}.png`);
+      }
+
+      const {
+        data: { text },
+      } = await worker.recognize(prepBuf);
 
       const cleaned = postClean(text, numericOnly);
       const score = scoreNumeric(cleaned);
@@ -94,27 +109,21 @@ async function toPngBuffer(input) {
 
 /**
  * Preprocess the image and return a Buffer.
- * If `debug === true` and `originalPath` is provided, write intermediate images to disk.
+ * (No file I/O here; saving handled centrally when debug is enabled.)
  */
-async function preprocessImageToBuffer(inputBuf, mode, { debug = false, originalPath = null } = {}) {
+async function preprocessImageToBuffer(inputBuf, mode) {
   if (mode === "gentle") {
-    const buf = await sharp(inputBuf)
+    return await sharp(inputBuf)
       .resize({ width: 2000, withoutEnlargement: false })
       .grayscale()
       .normalize()
       .sharpen()
       .toFormat("png")
       .toBuffer();
-
-    if (debug && originalPath) {
-      const out = originalPath.replace(/(\.\w+)?$/, ".gentle.png");
-      await sharp(buf).toFile(out);
-    }
-    return buf;
   }
 
   if (mode === "hard") {
-    const buf = await sharp(inputBuf)
+    return await sharp(inputBuf)
       .resize({ width: 2000, withoutEnlargement: false })
       .grayscale()
       .normalize()
@@ -122,20 +131,36 @@ async function preprocessImageToBuffer(inputBuf, mode, { debug = false, original
       .threshold(150)
       .toFormat("png")
       .toBuffer();
-
-    if (debug && originalPath) {
-      const out = originalPath.replace(/(\.\w+)?$/, ".hard.png");
-      await sharp(buf).toFile(out);
-    }
-    return buf;
   }
 
   // No preprocessing
-  if (debug && originalPath) {
-    const out = originalPath.replace(/(\.\w+)?$/, ".noprep.png");
-    await sharp(inputBuf).toFile(out);
-  }
   return inputBuf;
+}
+
+/**
+ * Save a PNG Buffer to disk with the provided filename (in CWD).
+ */
+async function saveDebugImage(buf, filename) {
+  await sharp(buf).toFile(filename);
+}
+
+/**
+ * Derive a meaningful debug name from either a provided debugName,
+ * the original file path, or fall back to "ocr_buffer".
+ */
+function makeDebugBaseName(image, debugName) {
+  if (debugName && typeof debugName === "string") {
+    return sanitizeName(debugName);
+  }
+  if (typeof image === "string") {
+    const base = path.basename(image, path.extname(image));
+    return sanitizeName(base || "ocr_image");
+  }
+  return "ocr_buffer";
+}
+
+function sanitizeName(name) {
+  return String(name).replace(/[^\w.-]+/g, "_");
 }
 
 /**
