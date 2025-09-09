@@ -27,11 +27,12 @@ function requestAbort(reason = "User requested quit") {
   if (!signal.aborted) {
     console.log(`\n⏹  ${reason}`);
     ac.abort();
-  }
+  
+}
 }
 
 // Keyboard: Q/q or Ctrl-C to abort
-process.stdin.setRawMode(true);
+//process.stdin.setRawMode(true);
 process.stdin.setEncoding("utf8");
 process.stdin.resume();
 process.stdin.on("data", (chunk) => {
@@ -66,6 +67,7 @@ const PS_MAP = {
 };
 
 function keyDownName(name) {
+  console.log(name);
   const key = PS_MAP[name.toUpperCase()];
   robot.keyToggle(key, "down");
 }
@@ -258,356 +260,6 @@ export async function runMenuScript(script, blockName) {
   await runBlock(block[blockName]);
 }
 
-// ---------------- Main sequence ----------------
-async function runTubeCorner30D({
-  target_x,
-  target_y,
-  target_z,
-  vrot_x,
-  vrot_y,
-  vrot_z,
-  speed,
-}) {
-  var current_x = 0;
-  var current_y = 0;
-  var current_z = 0;
-
-  await repeat("DPAD_RIGHT", 4);
-
-  await tapName("DPAD_DOWN", 200);
-
-  await repeat("DPAD_RIGHT", 4);
-  await repeat("DPAD_RIGHT", 4);
-
-  await repeat("DPAD_DOWN", 5);
-  await sleep(250);
-  await tapName("CROSS", 200);
-  await sleep(250);
-  await tapName("CROSS", 200);
-  await sleep(250);
-  await tapName("CROSS", 200);
-
-  await sleep(250);
-  await repeat("DPAD_DOWN", 2);
-
-  // HOLD TRIANGLE TO SPEED SHIT UP
-  keyDownName("TRIANGLE");
-
-  // X AXIS - Location
-  const { buffer: xBuf } = await captureRegion({
-    out: "x.png",
-    screenIndex: 1,
-    region: { left: 760, top: 168, width: 140, height: 35 },
-  });
-
-  const xtxt = await extractText(xBuf, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-  });
-
-  current_x = Number(xtxt);
-
-  await moveAxis(current_x, target_x, speed, "x");
-  await tapName("DPAD_DOWN", 200);
-  await sleep(500);
-
-  // Y AXIS - Location
-  const { buffer: yBuf } = await captureRegion({
-    out: "y.png",
-    screenIndex: 1,
-    //760 204 160 3
-    region: { left: 760, top: 204, width: 140, height: 35 },
-  });
-
-  const ytxt = await extractText(yBuf, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-  });
-
-  current_y = Number(ytxt);
-
-  await moveAxis(current_y, target_y, speed, "y");
-  await tapName("DPAD_DOWN", 200);
-  await sleep(500);
-
-  // Z AXIS - Location
-  const { buffer: zBuf } = await captureRegion({
-    out: "z.png",
-    screenIndex: 1,
-    // 760 244 140 35
-    region: { left: 760, top: 244, width: 140, height: 35 },
-  });
-
-  const ztxt = await extractText(zBuf, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-  });
-
-  current_z = Number(ztxt);
-
-  await moveAxis(current_z, target_z, speed, "z");
-  await sleep(500);
-
-  // RElEASE TRIANGLE
-  keyUpName("TRIANGLE");
-
-  // ROTATION
-
-  await tapName("CIRCLE", 200);
-  await tapName("DPAD_DOWN", 200);
-
-  await tapName("CROSS", 200);
-  await sleep(250);
-  await tapName("CROSS", 200);
-  await sleep(250);
-
-  await repeat("DPAD_DOWN", 2);
-
-  console.log("\n===============\nROTATION\n===============\n");
-
-  // HOLD TRIANGLE TO SPEED SHIT UP
-  keyDownName("TRIANGLE");
-
-  const { buffer: vrot_x_buff } = await captureRegion({
-    out: "vrot_x.png",
-    screenIndex: 1,
-    // 708 168 140 35
-    region: { left: 708, top: 168, width: 140, height: 35 },
-  });
-
-  const current_vrotx = await extractText(vrot_x_buff, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-  });
-
-  await moveRotationSmart(current_vrotx, vrot_y, 60, "x");
-  await sleep(500);
-
-  await tapName("DPAD_DOWN", 200);
-
-  const { buffer: vrot_y_buff } = await captureRegion({
-    out: "vrot_y.png",
-    screenIndex: 1,
-    // 708 168 140 35
-    region: { left: 708, top: 204, width: 140, height: 35 },
-  });
-
-  const current_vroty = await extractText(vrot_y_buff, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-  });
-
-  await moveRotationSmart(current_vroty, vrot_x, 60, "y");
-  await sleep(500);
-
-  await tapName("DPAD_DOWN", 200);
-
-  const { buffer: vrot_z_buff } = await captureRegion({
-    out: "vrot_z.png",
-    screenIndex: 1,
-    // 708 168 140 35
-    region: { left: 708, top: 242, width: 140, height: 35 },
-  });
-
-  const current_vrotz = await extractText(vrot_z_buff, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-    debug: true
-  });
-
-  console.log(current_vrotz);
-
-  await moveRotationSmart(current_vrotz, vrot_z, 60, "z");
-  await sleep(500);
-
-  // RElEASE TRIANGLE
-  keyUpName("TRIANGLE");
-
-  // CONFIRM IT ALL
-  await tapName("CROSS", 200);
-  await sleep(250);
-
-  await tapName("CIRCLE", 200);
-  await sleep(250);
-  await tapName("CIRCLE", 200);
-
-  await repeat("DPAD_DOWN", 3);
-
-  await repeat("DPAD_LEFT", 4);
-}
-
-async function runPlacement({
-  target_x,
-  target_y,
-  target_z,
-  vrot_x,
-  vrot_y,
-  vrot_z,
-  speed,
-}) {
-  var current_x = 0;
-  var current_y = 0;
-  var current_z = 0;
-
-  await repeat("DPAD_DOWN", 5);
-  await sleep(250);
-  await tapName("CROSS", 200);
-  await sleep(250);
-  await tapName("CROSS", 200);
-  await sleep(250);
-  await tapName("CROSS", 200);
-
-  await sleep(250);
-  await repeat("DPAD_DOWN", 2);
-
-  // HOLD TRIANGLE TO SPEED SHIT UP
-  keyDownName("TRIANGLE");
-
-  // X AXIS - Location
-  const { buffer: xBuf } = await captureRegion({
-    // out: "x.png",
-    screenIndex: 1,
-    region: { left: 760, top: 168, width: 140, height: 35 },
-  });
-
-  const xtxt = await extractText(xBuf, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-     debug: true
-  });
-
-  current_x = Number(xtxt);
-
-  await moveAxis(current_x, target_x, speed, "x");
-  await tapName("DPAD_DOWN", 200);
-  await sleep(500);
-
-  // Y AXIS - Location
-  const { buffer: yBuf } = await captureRegion({
-    // out: "y.png",
-    screenIndex: 1,
-    //760 204 160 3
-    region: { left: 760, top: 204, width: 140, height: 35 },
-  });
-
-  const ytxt = await extractText(yBuf, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-     debug: true
-  });
-
-  current_y = Number(ytxt);
-
-  await moveAxis(current_y, target_y, speed, "y");
-  await tapName("DPAD_DOWN", 200);
-  await sleep(500);
-
-  // Z AXIS - Location
-  const { buffer: zBuf } = await captureRegion({
-    // out: "z.png",
-    screenIndex: 1,
-    // 760 244 140 35
-    region: { left: 760, top: 244, width: 140, height: 35 },
-  });
-
-  const ztxt = await extractText(zBuf, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-     debug: true
-  });
-
-  current_z = Number(ztxt);
-
-  await moveAxis(current_z, target_z, speed, "z");
-  await sleep(500);
-
-  // RElEASE TRIANGLE
-  keyUpName("TRIANGLE");
-
-  // ROTATION
-
-  await tapName("CIRCLE", 200);
-  await tapName("DPAD_DOWN", 200);
-
-  await tapName("CROSS", 200);
-  await sleep(250);
-  await tapName("CROSS", 200);
-  await sleep(250);
-
-  await repeat("DPAD_DOWN", 2);
-
-  console.log("\n===============\nROTATION\n===============\n");
-
-  // HOLD TRIANGLE TO SPEED SHIT UP
-  keyDownName("TRIANGLE");
-
-  const { buffer: vrot_x_buff } = await captureRegion({
-    // out: "vrot_x.png",
-    screenIndex: 1,
-    // 708 168 140 35
-    region: { left: 708, top: 168, width: 140, height: 35 },
-  });
-
-  const current_vrotx = await extractText(vrot_x_buff, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-     debug: true
-  });
-
-  await moveRotationSmart(current_vrotx, vrot_y, 60, "x");
-  await sleep(500);
-
-  await tapName("DPAD_DOWN", 200);
-
-  const { buffer: vrot_y_buff } = await captureRegion({
-    // out: "vrot_y.png",
-    screenIndex: 1,
-    // 708 168 140 35
-    region: { left: 708, top: 204, width: 140, height: 35 },
-  });
-
-  const current_vroty = await extractText(vrot_y_buff, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-     debug: true
-  });
-
-  await moveRotationSmart(current_vroty, vrot_x, 60, "y");
-  await sleep(500);
-
-  await tapName("DPAD_DOWN", 200);
-
-  const { buffer: vrot_z_buff } = await captureRegion({
-    // out: "vrot_z.png",
-    screenIndex: 1,
-    // 708 168 140 35
-    region: { left: 708, top: 242, width: 140, height: 35 },
-  });
-
-  const current_vrotz = await extractText(vrot_z_buff, {
-    numericOnly: true, // keep only 0-9 and dot
-    psm: 7, // single line
-     debug: true
-  });
-
-  console.log(current_vrotz);
-
-  await moveRotationSmart(current_vrotz, vrot_z, 60, "z");
-  await sleep(500);
-
-  // RElEASE TRIANGLE
-  keyUpName("TRIANGLE");
-
-  await tapName("CROSS", 200); // CONFIRM IT ALL
-  await sleep(250);
-
-  await tapName("CIRCLE", 200);
-  await sleep(250);
-  await tapName("CIRCLE", 200);
-
-  await repeat("DPAD_DOWN", 3);
-}
-
 async function main() {
   try {
     const speed = 60.0;
@@ -702,6 +354,135 @@ async function main() {
     } catch {}
     process.exit(0);
   }
+}
+
+
+
+/**
+ * Refine one axis by repeatedly:
+ *  1) reading OCR
+ *  2) moving toward target at decaying speed
+ *  3) re-reading until within tolerance or maxIters hit
+ *
+ * @param {Object} opts
+ * @param {"x"|"y"|"z"} opts.axis
+ * @param {number} opts.target                   // desired coordinate
+ * @param {number} opts.initialSpeed             // your coarse speed (e.g., 1.0)
+ * @param {Object} opts.region                   // captureRegion {left, top, width, height}
+ * @param {boolean} [opts.triangleOnFirst=true]  // hold TRIANGLE for the first pass only
+ * @param {number} [opts.tolerance=0.003]        // stop when |target-current| <= tolerance
+ * @param {number} [opts.minSpeed=0.02]          // don't go below this speed
+ * @param {number} [opts.decay=0.45]             // multiply speed by this each iteration
+ * @param {number} [opts.maxIters=8]
+ * @param {number} [opts.settleMs=120]           // wait after moves before re-read
+ * @returns {Promise<number>} final OCR’d value
+ */
+async function nudgeToTargetAxis({
+  axis,
+  target,
+  initialSpeed,
+  region,
+  tolerance = 0.003,
+  minSpeed = 0.02,
+  decay = 0.45,
+  maxIters = 10,
+  settleMs = 120,
+}) {
+  let iter = 0;
+  let speed = Math.max(initialSpeed, minSpeed);
+
+  const readCurrent = async () => {
+    const { buffer } = await captureRegion({ screenIndex: 1, region });
+    const txt = await extractText(buffer, { numericOnly: true, psm: 7 });
+    const n = Number(txt);
+    if (Number.isNaN(n)) throw new Error(`OCR failed on ${axis}: "${txt}"`);
+    return n;
+  };
+
+  let current = await readCurrent();
+
+  while (iter < maxIters) {
+    const delta = target - current;
+    if (Math.abs(delta) <= tolerance) break;
+
+    // Decide which modifier to hold
+    if (iter <= 2) keyDownName("TRIANGLE");        // coarse
+    else if (iter >= 3) keyDownName("SQUARE");     // fine
+
+    await moveAxis(current, target, speed, axis);
+
+    // Release modifiers after move
+    if (iter <= 2) keyUpName("TRIANGLE");
+    if (iter >= 3) keyUpName("SQUARE");
+
+    await sleep(settleMs);
+    current = await readCurrent();
+
+    speed = Math.max(speed * decay, minSpeed);
+    iter++;
+  }
+
+  // Safety: make sure nothing is stuck
+  keyUpName("TRIANGLE");
+  keyUpName("SQUARE");
+
+  return current;
+}
+
+
+
+// ---- Updated runPlacement that uses nudgeToTargetAxis ----
+async function runPlacement({
+  target_x,
+  target_y,
+  target_z, // not used below, but wired for future
+  vrot_x,
+  vrot_y,
+  vrot_z,
+  speed,     // coarse speed for first pass (e.g., 1.0)
+}) {
+  // Navigate into the coordinate edit UI (as you had)
+  await repeat("DPAD_DOWN", 5);
+  await sleep(250);
+  await tapName("CROSS", 200);
+  await sleep(250);
+  await tapName("CROSS", 200);
+  await sleep(250);
+  await tapName("CROSS", 200);
+  await sleep(250);
+  await repeat("DPAD_DOWN", 2);
+
+  // X AXIS — coarse (triangle) then fine nudges
+  const finalX = await nudgeToTargetAxis({
+    axis: "x",
+    target: target_x,
+    initialSpeed: speed,
+    triangleOnFirst: true, // first pass fast, then precision
+    region: { left: 760, top: 168, width: 140, height: 35 },
+    tolerance: 0.001,      // tweak based on your OCR precision
+    minSpeed: 2,
+    decay: 0.025,
+    maxIters: 12,
+    settleMs: 120,
+  });
+
+  // Move down to Y field
+  await tapName("DPAD_DOWN", 200);
+  await sleep(500);
+
+  // (Optional) If you later add Z, do the same with its region here.
+
+  // Confirm & exit as before
+  await tapName("CROSS", 200); // confirm
+  await sleep(250);
+  await tapName("CIRCLE", 200);
+  await sleep(250);
+  await tapName("CIRCLE", 200);
+
+  await repeat("DPAD_DOWN", 3);
+
+  // (Optional) Log results
+  console.log(`[placement] finalX=${finalX.toFixed(3)} targetX=${target_x.toFixed(3)}`);
 }
 
 /**

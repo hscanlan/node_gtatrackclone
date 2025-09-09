@@ -60,7 +60,7 @@ export async function extractText(image, opts = {}) {
     const stamp = Date.now();
     const baseName = makeDebugBaseName(image, debugName);
     if (debug) {
-      await saveDebugImage(baseBuf, `./screencaps/${baseName}_base_${stamp}.png`);
+      await saveDebugImage(baseBuf, `${baseName}_base_${stamp}.png`);
     }
 
     for (const mode of attempts) {
@@ -68,7 +68,7 @@ export async function extractText(image, opts = {}) {
 
       if (debug) {
         const tag = mode || "noprep";
-        await saveDebugImage(prepBuf, `./screencaps/${baseName}_${tag}_${stamp}.png`);
+        await saveDebugImage(prepBuf, `${baseName}_${tag}_${stamp}.png`);
       }
 
       const {
