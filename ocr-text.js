@@ -21,6 +21,37 @@ import path from "path";
  * @param {string}  [opts.debugName]     Optional logical name prefix for debug files
  * @returns {Promise<number>} numeric value coerced to 3 decimals
  */
+
+// --- Shared tesseract worker (singleton) ---
+let _sharedWorkerPromise = null;
+let _sharedLang = null;
+let _sharedApiVersion = "v5";
+
+async function getSharedWorker(lang = "eng") {
+  // First time: create worker (and init if v4)
+  if (!_sharedWorkerPromise) {
+    _sharedLang = lang;
+    _sharedWorkerPromise = (async () => {
+      const { worker, apiVersion } = await createCompatWorker(lang);
+      _sharedApiVersion = apiVersion;
+      if (apiVersion === "v4") {
+        await worker.loadLanguage(lang);
+        await worker.initialize(lang);
+      }
+      return worker;
+    })();
+  } else if (_sharedLang !== lang) {
+    // If a different language is requested later, (re)init only for v4
+    const worker = await _sharedWorkerPromise;
+    if (_sharedApiVersion === "v4") {
+      await worker.loadLanguage(lang);
+      await worker.initialize(lang);
+    }
+    _sharedLang = lang;
+  }
+  return { worker: await _sharedWorkerPromise, apiVersion: _sharedApiVersion };
+}
+
 export async function extractText(image, opts = {}) {
   const {
     lang = "eng",
@@ -36,7 +67,8 @@ export async function extractText(image, opts = {}) {
   else if (preprocess) attempts.push(preprocess);
   else attempts.push(false);
 
-  const { worker, apiVersion } = await createCompatWorker(lang);
+  // Use the shared worker (singleton)
+  const { worker, apiVersion } = await getSharedWorker(lang);
 
   try {
     const params = { tessedit_pageseg_mode: String(psm) };
@@ -45,10 +77,7 @@ export async function extractText(image, opts = {}) {
       params.classify_bln_numeric_mode = "1";
     }
 
-    if (apiVersion === "v4") {
-      await worker.loadLanguage(lang);
-      await worker.initialize(lang);
-    }
+    // v4 init handled in getSharedWorker; for v5 just set parameters
     await worker.setParameters(params);
 
     let best = { text: "", score: -1 };
@@ -84,7 +113,8 @@ export async function extractText(image, opts = {}) {
 
     return toThreeDecimalNumber(best.text.trim());
   } finally {
-    await worker.terminate().catch(() => {});
+    // Do NOT terminate the shared worker; keep it alive for reuse
+    // await worker.terminate().catch(() => {});
   }
 }
 
@@ -184,12 +214,47 @@ function scoreNumeric(txt) {
   return score;
 }
 
-/**
- * Parse string → number with exactly 3 decimals
- */
+// Replace your existing toThreeDecimalNumber with this version
 function toThreeDecimalNumber(str) {
   if (!str) return NaN;
-  const num = parseFloat(str);
-  if (isNaN(num)) return NaN;
-  return parseFloat(num.toFixed(3));
+
+  // Keep only digits, optional leading minus, and dot
+  let cleaned = str.replace(/[^\d\-.]/g, "");
+
+  // If it already has a decimal point, parse and round
+  if (cleaned.includes(".")) {
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? NaN : parseFloat(num.toFixed(3));
+  }
+
+  // No decimal point present
+  const negative = cleaned.startsWith("-");
+  const digits = cleaned.replace("-", "");
+  if (!/^\d+$/.test(digits)) return NaN;
+
+  // --- Heuristic: leading zero decimal that lost the dot (e.g., "0419" => 0.419)
+  // "0419" (len 4)  -> 0.419
+  // "-0419" (len 5) -> -0.419
+  if (digits.length === 4 && digits.startsWith("0")) {
+    const frac = digits.slice(1).padStart(3, "0"); // "419"
+    const composed = `${negative ? "-" : ""}0.${frac}`;
+    const num = parseFloat(composed);
+    return isNaN(num) ? NaN : parseFloat(num.toFixed(3));
+  }
+
+  // Existing rule:
+  // If abs(value) >= 10000 → interpret last 3 digits as decimals
+  const absVal = parseInt(digits, 10);
+  if (absVal >= 10000) {
+    const intPart = digits.slice(0, -3);
+    const fracPart = digits.slice(-3).padStart(3, "0");
+    const composed = `${negative ? "-" : ""}${intPart}.${fracPart}`;
+    const num = parseFloat(composed);
+    return isNaN(num) ? NaN : parseFloat(num.toFixed(3));
+  }
+
+  // Otherwise, treat as integer with .000
+  const normal = negative ? -absVal : absVal;
+  return parseFloat(normal.toFixed(3));
 }
+

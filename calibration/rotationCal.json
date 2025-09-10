@@ -1,0 +1,32 @@
+[
+  {
+    "target": 0.001,
+    "ms": 21,
+    "heldKey": "SQUARE"
+  },
+  {
+    "target": 0.01,
+    "ms": 158,
+    "heldKey": "SQUARE"
+  },
+  {
+    "target": 0.1,
+    "ms": 11,
+    "heldKey": "-"
+  },
+  {
+    "target": 1,
+    "ms": 149,
+    "heldKey": "-"
+  },
+  {
+    "target": 10,
+    "ms": 1662,
+    "heldKey": "-"
+  },
+  {
+    "target": 100,
+    "ms": 1652,
+    "heldKey": "TRIANGLE"
+  }
+]
