@@ -4,10 +4,10 @@ import { tapName, keyDownName, keyUpName } from "./helpers/keys.js";
 import { readCurrent } from "./helpers/utils.js";
 import { sleep } from "./helpers/sleep.js";
 import { saveCalibration } from "./helpers/calibrationIO.js";
-import { runMoveFlow } from "./helpers/runMoveFlow.js";
 import { createInterface } from "readline/promises";
 import { moveTo } from "./helpers/moveTo.js";
 import { loadCalibration } from "./helpers/calibrationIO.js";
+import { moveToTest } from "./moveToTest.js";
 
 // ==== Config ====
 
@@ -28,9 +28,9 @@ const MAX_STEPS = 400;
 const SMALLEST_MAX_TRIES = 150;
 
 // --- Calibration targets ---
-//const calibrationTargets = [0.001, 0.01, 0.1, 1, 3, 6, 10, 20, 40, 60, 100];
+const calibrationTargets = [0.001, 1, 2, 3];
 
-const calibrationTargets = [ 10.1] ;
+//const calibrationTargets = [ 10.1] ;
 
 // --- Other calibration config ---
 const MAX_SUB_ITERS = 20;
@@ -38,10 +38,10 @@ const MIN_MS = 0;
 const MAX_MS = 2000;
 
 // Hold thresholds
-const HOLD_SQUARE_BELOW = 0.099;
-const HOLD_TRIANGLE_ABOVE = 0.999;
-const HOLD_LEAD_MS = 5;
-const HOLD_TAIL_MS = 5;
+const HOLD_SQUARE_BELOW = 1;
+const HOLD_TRIANGLE_ABOVE = 1.9;
+const HOLD_LEAD_MS = 0;
+const HOLD_TAIL_MS = 0;
 
 // OCR region for X field (adjust if needed)
 const X_REGION = { left: 760, top: 168, width: 140, height: 35 };
@@ -323,8 +323,14 @@ async function main() {
 
   try {
     console.log(
-      "Select mode:\n  1) Calibrate Position\n  2) Calibrate Rotation\n  3) Move object to target\n  4) Rotate object to target"
+      "Select mode:\n" +
+        "  1) Calibrate Position\n" +
+        "  2) Calibrate Rotation\n" +
+        "  3) Move object to target\n" +
+        "  4) Rotate object to target\n" +
+        "  5) Move (two-phase test: whole→decimals)"
     );
+
     const choice = await rl.question("Selection: ");
 
     if (choice.trim() === "1") {
@@ -391,10 +397,12 @@ async function main() {
         tail: 10,
         region: XROT_REGION,
       });
+    }
       await tapName("DPAD_DOWN", 150);
     } else if (choice.trim().toUpperCase() === "Q") {
       process.exit();
-    } else {
+    } else if (choice.trim() === "5") {
+        await runTwoPhaseMovePosition();else {
       console.log("Invalid choice.");
     }
 

@@ -1,27 +1,22 @@
 [
   {
+    "target": 0.001,
+    "ms": 8,
+    "heldKey": "SQUARE"
+  },
+  {
     "target": 1,
-    "ms": 20,
-    "heldKey": "TRIANGLE"
-  },
-  {
-    "target": 2,
-    "ms": 30,
-    "heldKey": "TRIANGLE"
-  },
-  {
-    "target": 0.1,
-    "ms": 14,
+    "ms": 147,
     "heldKey": "-"
   },
   {
-    "target": 0.01,
-    "ms": 157,
-    "heldKey": "SQUARE"
+    "target": 2,
+    "ms": 32,
+    "heldKey": "TRIANGLE"
   },
   {
-    "target": 0.001,
-    "ms": 10,
-    "heldKey": "SQUARE"
+    "target": 3,
+    "ms": 31,
+    "heldKey": "TRIANGLE"
   }
 ]

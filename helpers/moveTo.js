@@ -2,7 +2,7 @@
 import { tapName, keyDownName, keyUpName, repeat } from "./keys.js";
 import { readCurrent } from "./utils.js";
 import { sleep } from "./sleep.js";
-
+import { createRenderer } from "./ui.js";
 /**
  * Press using calibration. If repeats > 1, hold once and long-press (ms * repeats).
  * Returns msTotal actually tapped.
@@ -119,44 +119,47 @@ function conservativeAggregateForHeldKey(absRem, plan, heldKey, tol) {
 
   return { picks, msTotal, repeatsTotal, covered };
 }
-
 /**
- * NEW: Aggregate across ALL heldKeys (largest→smallest overall),
- * then group by heldKey in execution order so each heldKey is pressed once.
- *
- * Returns:
- * {
- *   segments: [
- *     { heldKey, detail:[{step,repeats,msEach}], msTotal, repeatsTotal, stepsUsed:[...] },
- *     ...
- *   ],
- *   covered
- * }
+ * Aggregate across ALL heldKeys:
+ * - First consumes whole number steps (>= 1)
+ * - Then consumes fractional steps (< 1)
+ * Groups by heldKey so each is pressed once.
  */
 function aggregateAllHeldKeys(absRem, plan, tol) {
   const cap = Math.max(0, absRem - tol);
   if (cap <= 0) return null;
 
   let covered = 0;
-  const picks = []; // ungrouped picks in selection order
+  const picks = [];
 
-  for (const p of plan) {
-    if (covered >= cap) break;
-    const remaining = cap - covered;
-    const maxRepeats = Math.floor(remaining / p.step);
-    if (maxRepeats <= 0) continue;
-    picks.push({
-      heldKey: p.heldKey ?? "-",
-      step: p.step,
-      repeats: maxRepeats,
-      msEach: p.ms,
-    });
-    covered += maxRepeats * p.step;
+  // Partition plan into whole steps (>=1) and decimals (<1)
+  const wholePlan = plan.filter((p) => p.step >= 1);
+  const fracPlan = plan.filter((p) => p.step < 1);
+
+  // Helper to consume a plan in order
+  function consumePlan(subPlan) {
+    for (const p of subPlan) {
+      if (covered >= cap) break;
+      const remaining = cap - covered;
+      const maxRepeats = Math.floor(remaining / p.step);
+      if (maxRepeats <= 0) continue;
+      picks.push({
+        heldKey: p.heldKey ?? "-",
+        step: p.step,
+        repeats: maxRepeats,
+        msEach: p.ms,
+      });
+      covered += maxRepeats * p.step;
+    }
   }
+
+  // First all whole numbers, then decimals
+  consumePlan(wholePlan);
+  consumePlan(fracPlan);
 
   if (picks.length === 0) return null;
 
-  // Group adjacent same-heldKey picks preserving order
+  // Group adjacent same-heldKey picks
   const segments = [];
   for (const pick of picks) {
     const hk = pick.heldKey;
@@ -430,9 +433,15 @@ export async function moveTo({
     current = after;
     render(current);
   }
-
   const finalErr = target - current;
   render(current);
+
+  // Pretty-print the execution table
+  if (ui?.table !== false) {
+    console.log("\n\nExecution Table:");
+    console.table(rows);
+  }
+
   return {
     ok: Math.abs(finalErr) <= tol,
     reason: Math.abs(finalErr) <= tol ? "ok" : "max_steps",
@@ -442,6 +451,8 @@ export async function moveTo({
     rows,
   };
 }
+
+
 
 // Back-compat alias
 export const moveXTo = (opts) => moveTo({ axisLabel: "x", ...opts });
