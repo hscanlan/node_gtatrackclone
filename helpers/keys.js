@@ -11,14 +11,13 @@ const PS_MAP = {
   DPAD_DOWN: "down",
   DPAD_LEFT: "left",
   DPAD_RIGHT: "right",
-
   L1: "q",
   L2: "w",
   R1: "e",
   R2: "r",
 };
 
-export async function repeat(name, times, holdMs = 200) {
+export async function repeat(name, times, holdMs = 225) {
   for (let i = 0; i < times; i++) {
     await tapName(name, holdMs);
   }
@@ -43,7 +42,7 @@ export function keyUp(key) {
 }
 
 // Always releases key even if aborted during hold
-export async function tap(key, holdMs = 200) {
+export async function tap(key, holdMs = 225) {
 //  console.log("tap " + key + " " + holdMs);
   keyDown(key);
   try {
@@ -53,7 +52,7 @@ export async function tap(key, holdMs = 200) {
   }
 }
 
-export async function tapName(name, holdMs = 200) {
+export async function tapName(name, holdMs = 225) {
 // console.log("tapName " + name + " " + holdMs);
   const key = PS_MAP[name.toUpperCase()];
   if (!key) throw new Error(`Unknown button: ${name}`);

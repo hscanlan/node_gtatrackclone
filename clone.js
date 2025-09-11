@@ -47,7 +47,7 @@ async function runMenuScript(script, blockName) {
       const times = Number(s.times) || 0;
       if (times > 0) await repeat(s.key, times);
     } else if (s.op === "tap") {
-      const delay = s.ms != null ? Number(s.ms) : 250;
+      const delay = s.ms != null ? Number(s.ms) : 225;
       await tapName(s.key, delay);
     } else if (s.op === "sleep") {
       await sleep(Number(s.ms) || 0);
@@ -67,8 +67,8 @@ async function runPlacementXYZ({ calibration, target, region, targetName }) {
     maxSteps: MAX_STEPS,
     smallestMaxTries: SMALLEST_MAX_TRIES,
     ui: { live: true },
-    lead: 30,
-    tail: 10,
+    lead: 0,
+    tail: 0,
     region: region,
   });
 
@@ -142,7 +142,7 @@ async function main() {
 
     const summary = [];
 
-    for (let i = 32; i < rows.length; i++) {
+    for (let i = 0; i < rows.length; i++) {
       const row = rows[i] || {};
       const modelNumber = row?.model;
       const targetX = Number(row?.location?.x);
@@ -176,13 +176,13 @@ async function main() {
         await runMenuScript(script, "enter");
 
         await repeat("DPAD_DOWN", 5);
-        await sleep(250);
-        await tapName("CROSS", 200);
-        await sleep(250);
-        await tapName("CROSS", 200);
-        await sleep(250);
-        await tapName("CROSS", 200);
-        await sleep(250);
+        await sleep(225);
+        await tapName("CROSS", 225);
+        await sleep(225);
+        await tapName("CROSS", 225);
+        await sleep(225);
+        await tapName("CROSS", 225);
+        await sleep(225);
         await repeat("DPAD_DOWN", 2);
 
         // move X using calibrated steps (live table prints during the move)
@@ -194,8 +194,8 @@ async function main() {
         });
 
         // Move down to Y field
-        await tapName("DPAD_DOWN", 200);
-        await sleep(250);
+        await tapName("DPAD_DOWN", 225);
+        await sleep(225);
 
         // move Y using calibrated steps (live table prints during the move)
         const ypos = await runPlacementXYZ({
@@ -206,8 +206,8 @@ async function main() {
         });
 
         // Move down to Z field
-        await tapName("DPAD_DOWN", 200);
-        await sleep(250);
+        await tapName("DPAD_DOWN", 225);
+        await sleep(225);
 
         // move Z using calibrated steps (live table prints during the move)
         const zpos = await runPlacementXYZ({
@@ -219,12 +219,12 @@ async function main() {
 
         //Move to Override Position
         await repeat("CIRCLE", 1);
-        await sleep(250);
-        await repeat("DPAD_DOWN", 1);
-        await repeat("CROSS", 1);
-        await sleep(250);
-        await repeat("CROSS", 1);
-        await sleep(250);
+        await sleep(225);
+        await tapName("DPAD_DOWN", 225);
+        await tapName("CROSS", 225);
+        await sleep(225);
+        await tapName("CROSS", 225);
+        await sleep(500);
 
         // Move down to Rotation X
         await repeat("DPAD_DOWN", 2);
@@ -260,15 +260,15 @@ async function main() {
           targetName: `index ${i} for ZROT`,
         });
 
-        await sleep(250);
+        await sleep(225);
 
         // Confirm & exit as before
-        await tapName("CROSS", 200); // confirm
-        await sleep(250);
-        await tapName("CIRCLE", 200);
-        await sleep(250);
-        await tapName("CIRCLE", 200);
-        await sleep(250);
+        await tapName("CROSS", 500); // confirm
+        await sleep(225);
+        await tapName("CIRCLE", 225);
+        await sleep(225);
+        await tapName("CIRCLE", 225);
+        await sleep(225);
 
         await repeat("DPAD_DOWN", 3);
 
@@ -283,7 +283,7 @@ async function main() {
         console.error(`Row ${i}: error:`, err);
       }
 
-      await sleep(250);
+      await sleep(225);
     }
 
     console.log("\n✅ Done.");

@@ -1,21 +1,48 @@
 // sleep.js
 import { keyUpName } from "./keys.js";
 
+let paused = false;
+let resumeResolve = null;
+
+export function requestPause() {
+  if (!paused) {
+    paused = true;
+    console.log("\n⏸ Paused. Press 'c' to continue (delayed) or 'q' to quit.");
+  }
+}
+
+export async function requestResume(delaySec = 5) {
+  if (paused) {
+    console.log(`▶ Continuing in ${delaySec}s ...`);
+    setTimeout(() => {
+      paused = false;
+      console.log("▶ Resumed.");
+      resumeResolve?.();
+      resumeResolve = null;
+    }, delaySec * 1000);
+  }
+}
+
+export async function waitIfPaused() {
+  if (!paused) return;
+  return new Promise((resolve) => {
+    resumeResolve = resolve;
+  });
+}
+
 // ----- Singleton AbortController -----
 const GKEY = "__sleep_singleton__";
-const S = globalThis[GKEY] ??= (() => {
+const S = (globalThis[GKEY] ??= (() => {
   const ac = new AbortController();
   return {
     controller: ac,
     signal: ac.signal,
-    wired: false
+    wired: false,
   };
-})();
+})());
 
 function _abort(reason = "User requested quit") {
   if (!S.signal.aborted) {
-
-
     console.log(`\n⏹  ${reason}`);
 
     keyUpName("CROSS");
@@ -57,7 +84,9 @@ if (!S.wired) {
       if (typeof process.stdin.setRawMode === "function") {
         process.stdin.setRawMode(true);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     process.stdin.setEncoding("utf8");
     if (!process.stdin.readableFlowing) {
@@ -75,9 +104,10 @@ if (!S.wired) {
 export function sleep(ms, { signal } = {}) {
   const signals = [S.signal, signal].filter(Boolean);
 
-  const composed = (typeof AbortSignal?.any === "function" && signals.length > 0)
-    ? AbortSignal.any(signals)
-    : signals[0];
+  const composed =
+    typeof AbortSignal?.any === "function" && signals.length > 0
+      ? AbortSignal.any(signals)
+      : signals[0];
 
   return new Promise((resolve) => {
     const timer = setTimeout(() => {

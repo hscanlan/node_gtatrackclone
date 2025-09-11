@@ -19,7 +19,7 @@ const CAL_ABS_TOL = 0.000025;
 const MOVE_TOL_REL = 0.0;
 const MOVE_TOL_ABS = 0.0;
 
-const MOVE_ABS_TOL = 0.0005;
+const MOVE_ABS_TOL = 0.0;
 const MOVE_REL_TOL = 0.0;
 
 // Limits
@@ -28,18 +28,20 @@ const MAX_STEPS = 400;
 const SMALLEST_MAX_TRIES = 150;
 
 // --- Calibration targets ---
-const calibrationTargets = [0.001, 0.01, 0.1, 1, 3, 6, 10, 20, 40, 60, 100];
+//const calibrationTargets = [0.001, 0.01, 0.1, 1, 3, 6, 10, 20, 40, 60, 100];
+
+const calibrationTargets = [ 10.1] ;
 
 // --- Other calibration config ---
-const MAX_SUB_ITERS = 12;
-const MIN_MS = 1;
-const MAX_MS = 5000;
+const MAX_SUB_ITERS = 20;
+const MIN_MS = 0;
+const MAX_MS = 2000;
 
 // Hold thresholds
-const HOLD_SQUARE_BELOW = 0.1;
+const HOLD_SQUARE_BELOW = 0.099;
 const HOLD_TRIANGLE_ABOVE = 0.999;
-const HOLD_LEAD_MS = 30;
-const HOLD_TAIL_MS = 10;
+const HOLD_LEAD_MS = 5;
+const HOLD_TAIL_MS = 5;
 
 // OCR region for X field (adjust if needed)
 const X_REGION = { left: 760, top: 168, width: 140, height: 35 };
@@ -330,15 +332,37 @@ async function main() {
     } else if (choice.trim() === "2") {
       await runCalibrationRotation();
     } else if (choice.trim() === "3") {
-      await runMoveFlow({
-        calibrationFile: "calPosition.json",
-        tolerances: { relPct: MOVE_TOL_REL, absTol: MOVE_TOL_ABS },
-        maxSteps: 400,
-        smallestMaxTries: 100,
-        lead: 30,
-        tail: 10,
-        live: true,
+      const ans = await rl.question(
+        `Enter target rotation value (NOTE: Must be between -180 to 180): `
+      );
+
+      const target = to360(ans);
+
+      console.log(
+        `\nMoving rotation in 3 seconds… (Real: ${ans} Degrees: ${target})`
+      );
+      await sleep(3000);
+
+      const calibration = await loadCalibration("positionCal.json");
+      const targetName = "x";
+
+      await tapName("DPAD_UP", 150);
+
+      const result = await moveTo({
+        target: target,
+        calibration,
+        axisLabel: targetName,
+        dirKeys: { positive: "DPAD_RIGHT", negative: "DPAD_LEFT" },
+        tolerances: { relPct: MOVE_REL_TOL, absTol: MOVE_ABS_TOL },
+        maxSteps: MAX_STEPS,
+        smallestMaxTries: SMALLEST_MAX_TRIES,
+        ui: { live: true },
+        lead: 0,
+        tail: 0,
+        region: X_REGION,
       });
+
+      await tapName("DPAD_DOWN", 150);
     } else if (choice.trim() === "4") {
       const ans = await rl.question(
         `Enter target rotation value (NOTE: Must be between -180 to 180): `
@@ -353,7 +377,7 @@ async function main() {
 
       const calibration = await loadCalibration("rotationCal.json");
       const targetName = "xRot";
-
+      await tapName("DPAD_UP", 150);
       const result = await moveTo({
         target: target,
         calibration,
@@ -367,8 +391,7 @@ async function main() {
         tail: 10,
         region: XROT_REGION,
       });
-
-   
+      await tapName("DPAD_DOWN", 150);
     } else if (choice.trim().toUpperCase() === "Q") {
       process.exit();
     } else {
