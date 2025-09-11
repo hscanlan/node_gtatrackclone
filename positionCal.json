@@ -1,7 +1,27 @@
 [
   {
-    "target": 10.1,
-    "ms": 149,
+    "target": 1,
+    "ms": 20,
     "heldKey": "TRIANGLE"
+  },
+  {
+    "target": 2,
+    "ms": 30,
+    "heldKey": "TRIANGLE"
+  },
+  {
+    "target": 0.1,
+    "ms": 14,
+    "heldKey": "-"
+  },
+  {
+    "target": 0.01,
+    "ms": 157,
+    "heldKey": "SQUARE"
+  },
+  {
+    "target": 0.001,
+    "ms": 10,
+    "heldKey": "SQUARE"
   }
 ]
