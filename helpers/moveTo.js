@@ -5,6 +5,7 @@ import { sleep } from "./sleep.js";
 
 /**
  * Press using calibration. If repeats > 1, hold once and long-press (ms * repeats).
+ * Returns msTotal actually tapped.
  */
 export async function applyCalibratedBatch(
   dirKey,
@@ -14,49 +15,83 @@ export async function applyCalibratedBatch(
   tail = 10
 ) {
   const hold = entry.heldKey && entry.heldKey !== "-" ? entry.heldKey : null;
-  const totalMs = Math.max(1, Math.round(entry.ms * repeats));
+  const msEach = Math.max(1, Math.round(entry.ms));
+  const msTotal = Math.max(1, Math.round(msEach * repeats));
 
   if (hold) {
     await keyDownName(hold);
     if (lead > 0) await sleep(lead);
     try {
-      await tapName(dirKey, totalMs);
+      await tapName(dirKey, msTotal);
     } finally {
       if (tail > 0) await sleep(tail);
       await keyUpName(hold);
     }
   } else {
-    await tapName(dirKey, totalMs);
+    await tapName(dirKey, msTotal);
   }
 
-  return totalMs;
+  return msTotal;
 }
 
-function toMapByStep(calibArray) {
-  const map = [];
-  const seen = new Set();
-  for (const r of calibArray) {
-    const step = Number(r.target);
-    const key = `${step}`;
-    if (!Number.isFinite(step) || seen.has(key)) continue;
-    seen.add(key);
-    map.push({
-      step,
-      ms: Number(r.ms),
-      heldKey: r.heldKey ?? r.HeldKey ?? "-",
-    });
+/* ---------------------------------------------------------------------- */
+/* --------------------------- Planning helpers ------------------------- */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Normalize + sort calibration into a descending step plan.
+ * Each item: { step:number, ms:number, heldKey:string|"-" }
+ */
+function toMapByStep(calibration) {
+  const plan = calibration
+    .map((c) => ({
+      step: Number(c.target),
+      ms: Number(c.ms),
+      heldKey: c.heldKey ?? "-",
+    }))
+    .filter((p) => isFinite(p.step) && p.step > 0 && isFinite(p.ms) && p.ms > 0)
+    .sort((a, b) => b.step - a.step); // largest -> smallest
+  return plan;
+}
+
+/**
+ * Pick which heldKey is likely best for the remaining amount:
+ * choose the heldKey whose largest step ≤ remaining is itself the largest among peers.
+ */
+function pickHeldKeyForRemaining(absRem, plan) {
+  // Group by heldKey, then find each HK's largest step that fits.
+  const byHK = new Map();
+  for (const p of plan) {
+    const hk = p.heldKey ?? "-";
+    if (!byHK.has(hk)) byHK.set(hk, []);
+    byHK.get(hk).push(p);
   }
-  // Largest -> smallest
-  map.sort((a, b) => b.step - a.step);
-  return map;
+  let bestHK = "-";
+  let bestStep = 0;
+  for (const [hk, items] of byHK.entries()) {
+    const largestFits = items.find((x) => x.step <= absRem); // items sorted desc via plan
+    if (largestFits && largestFits.step > bestStep) {
+      bestStep = largestFits.step;
+      bestHK = hk;
+    }
+  }
+  return bestHK;
 }
 
-function effectiveFinalTolerance(target, relPct, absTol) {
-  const rel = Math.abs(target) * (relPct ?? 0);
-  return Math.max(absTol ?? 0, rel);
+/**
+ * Pick the largest step within a specific heldKey that does not overshoot cap (absRem - tol).
+ */
+function pickLargestStepWithinHK(absRem, plan, heldKey, tol) {
+  const cap = Math.max(0, absRem - tol);
+  const hk = heldKey ?? "-";
+  const sameHK = plan.filter((p) => (p.heldKey ?? "-") === hk);
+  return sameHK.find((p) => p.step <= cap) || null;
 }
 
-/* ---------------- conservative aggregate for a single heldKey ---------------- */
+/**
+ * Conservative single-heldKey aggregate: pack repeats of HK-specific steps (desc) up to cap.
+ * Returns {picks:[{step,repeats,msEach}], msTotal, repeatsTotal, covered} or null.
+ */
 function conservativeAggregateForHeldKey(absRem, plan, heldKey, tol) {
   const hk = heldKey ?? "-";
   const sameHK = plan.filter((p) => (p.heldKey ?? "-") === hk);
@@ -76,39 +111,83 @@ function conservativeAggregateForHeldKey(absRem, plan, heldKey, tol) {
 
   if (picks.length === 0) return null;
 
-  if (covered >= cap && picks.length > 0) {
-    const last = picks[picks.length - 1];
-    if (last.repeats > 0) {
-      covered -= last.step;
-      last.repeats -= 1;
-      if (last.repeats === 0) picks.pop();
-    }
+  const msTotal = picks.reduce(
+    (s, d) => s + Math.max(1, Math.round(d.msEach * d.repeats)),
+    0
+  );
+  const repeatsTotal = picks.reduce((s, d) => s + d.repeats, 0);
+
+  return { picks, msTotal, repeatsTotal, covered };
+}
+
+/**
+ * NEW: Aggregate across ALL heldKeys (largest→smallest overall),
+ * then group by heldKey in execution order so each heldKey is pressed once.
+ *
+ * Returns:
+ * {
+ *   segments: [
+ *     { heldKey, detail:[{step,repeats,msEach}], msTotal, repeatsTotal, stepsUsed:[...] },
+ *     ...
+ *   ],
+ *   covered
+ * }
+ */
+function aggregateAllHeldKeys(absRem, plan, tol) {
+  const cap = Math.max(0, absRem - tol);
+  if (cap <= 0) return null;
+
+  let covered = 0;
+  const picks = []; // ungrouped picks in selection order
+
+  for (const p of plan) {
+    if (covered >= cap) break;
+    const remaining = cap - covered;
+    const maxRepeats = Math.floor(remaining / p.step);
+    if (maxRepeats <= 0) continue;
+    picks.push({
+      heldKey: p.heldKey ?? "-",
+      step: p.step,
+      repeats: maxRepeats,
+      msEach: p.ms,
+    });
+    covered += maxRepeats * p.step;
   }
 
   if (picks.length === 0) return null;
 
-  const msTotal = picks.reduce(
-    (s, x) => s + Math.max(1, Math.round(x.msEach * x.repeats)),
-    0
-  );
-  const repeatsTotal = picks.reduce((s, x) => s + x.repeats, 0);
-  const stepsUsed = picks.map((x) => x.step);
+  // Group adjacent same-heldKey picks preserving order
+  const segments = [];
+  for (const pick of picks) {
+    const hk = pick.heldKey;
+    const last = segments[segments.length - 1];
+    if (last && last.heldKey === hk) {
+      last.detail.push({
+        step: pick.step,
+        repeats: pick.repeats,
+        msEach: pick.msEach,
+      });
+    } else {
+      segments.push({
+        heldKey: hk,
+        detail: [{ step: pick.step, repeats: pick.repeats, msEach: pick.msEach }],
+      });
+    }
+  }
 
-  return { msTotal, repeatsTotal, stepsUsed };
+  // Summaries per segment
+  for (const seg of segments) {
+    seg.msTotal = seg.detail.reduce(
+      (s, d) => s + Math.max(1, Math.round(d.msEach * d.repeats)),
+      0
+    );
+    seg.repeatsTotal = seg.detail.reduce((s, d) => s + d.repeats, 0);
+    seg.stepsUsed = seg.detail.map((d) => d.step);
+  }
+
+  return { segments, covered };
 }
 
-/* ---------------- helpers for picking next group/step ---------------- */
-function pickHeldKeyForRemaining(absRem, plan) {
-  const item = plan.find((p) => p.step <= absRem);
-  return item ? item.heldKey ?? "-" : plan[plan.length - 1].heldKey ?? "-";
-}
-
-function pickLargestStepWithinHK(absRem, plan, heldKey, tol) {
-  const cap = Math.max(0, absRem - tol);
-  const hk = heldKey ?? "-";
-  const sameHK = plan.filter((p) => (p.heldKey ?? "-") === hk);
-  return sameHK.find((p) => p.step <= cap) || null;
-}
 /* ---------------------------------------------------------------------- */
 
 /**
@@ -128,127 +207,113 @@ export async function moveTo({
   region,
 } = {}) {
   if (!Array.isArray(calibration) || calibration.length === 0) {
-    throw new Error("moveTo: calibration array is required.");
+    throw new Error("calibration is required and must be a non-empty array");
   }
 
-  const rows = [];
+  // Plan: largest -> smallest steps across all heldKeys
   const plan = toMapByStep(calibration);
-  const smallest = plan[plan.length - 1];
+  if (plan.length === 0) {
+    throw new Error("calibration produced no valid steps");
+  }
 
+  // Tolerance
   const read = async () => {
-    await tapName("DPAD_UP", 150); // confirm
-    await sleep(100);
-    const output = await readCurrent(region, axisLabel, {
-      minConf: 80,
-      showConfidence: false,
-      debug: false,
-      debugOutBase: "test-field",
-
-      // existing
-      scale: 2,
-      sharpen: false,
-      threshold: 0,
-      kernel: "cubic",
-
-      // NEW
-      brightness: 5.15, // >1 brighter, <1 darker
-      contrast: 3.5, // >1 more contrast, <1 less
-      gamma: 0.9, // optional, can help OCR on greys
-    });
-
-    await tapName("DPAD_DOWN", 150); // confirm
-    await sleep(100);
-
-    return output;
+    const v = await readCurrent(region);
+    return Number(v);
   };
-
-  const tol = effectiveFinalTolerance(
-    target,
-    tolerances.relPct,
-    tolerances.absTol
+  let current = await read();
+  const span = Math.max(1, Math.abs(target) || Math.abs(current) || 1);
+  const tol = Math.max(
+    Number(tolerances?.absTol ?? 0.0),
+    (Number(tolerances?.relPct ?? 0.0) / 100.0) * span
   );
 
-  const MAX_REPEATS_PER_BATCH = 200;
-
-  function render(current) {
+  // UI helpers
+  const rows = [];
+  let batch = 0;
+  const render = (val) => {
     if (!ui?.live) return;
-    console.clear();
-    console.log(
-      `Move ${axisLabel} to ${target} (tol = ${tol}) — current = ${current}\n`
+    const remaining = target - val;
+    const sign = remaining === 0 ? "" : remaining > 0 ? "+" : "";
+    process.stdout.write(
+      `\r${axisLabel.toUpperCase()}: ` +
+        `cur=${val.toFixed(6)} ` +
+        `rem=${sign}${remaining.toFixed(6)} ` +
+        `tol=${tol.toExponential(2)}     `
     );
-    console.table(rows);
-  }
-
-  function chooseStep(absRem) {
-    return plan.find((p) => absRem >= p.step) ?? smallest;
-  }
-
-  const nextStepOf = (step) => {
-    const idx = plan.findIndex((s) => s.step === step);
-    const next = plan[idx + 1];
-    return next ? next.step : smallest.step;
   };
 
-  let current = await read();
-  let smallestTries = 0;
+  render(current);
 
-  /* ---------------- PRE-PASS: aggregate → single → re-evaluate ---------------- */
+  /* ---------------- PRE-PASS: multi-heldKey aggregate → single tune ------------ */
   {
-    render(current);
     const MAX_PREPASS_CYCLES = 9;
 
     for (let cycle = 1; cycle <= MAX_PREPASS_CYCLES; cycle++) {
+      // Phase A: aggregate across ALL held keys (largest→smallest)
       const remainingA = target - current;
       const absRemA = Math.abs(remainingA);
       if (absRemA <= tol) break;
 
-      const hk = pickHeldKeyForRemaining(absRemA, plan);
+      const aggAll = aggregateAllHeldKeys(absRemA, plan, tol);
 
-      const agg = conservativeAggregateForHeldKey(absRemA, plan, hk, tol);
-      if (agg && agg.msTotal > 0) {
+      if (aggAll && aggAll.segments.length > 0) {
         const dirKey = remainingA > 0 ? dirKeys.positive : dirKeys.negative;
         const before = current;
 
-        if (hk && hk !== "-") {
-          await keyDownName(hk);
-          if (lead > 0) await sleep(lead);
-          try {
-            await tapName(dirKey, agg.msTotal);
-          } finally {
-            if (tail > 0) await sleep(tail);
-            await keyUpName(hk);
+        for (const seg of aggAll.segments) {
+          const hk = seg.heldKey;
+          if (hk && hk !== "-") {
+            await keyDownName(hk);
+            if (lead > 0) await sleep(lead);
+            try {
+              await tapName(dirKey, seg.msTotal);
+            } finally {
+              if (tail > 0) await sleep(tail);
+              await keyUpName(hk);
+            }
+          } else {
+            await tapName(dirKey, seg.msTotal);
           }
-        } else {
-          await tapName(dirKey, agg.msTotal);
+
+          rows.push({
+            Batch: 0,
+            Phase: "AGG-ALL",
+            HeldKey: hk ?? "-",
+            Dir: dirKey,
+            StepSize: `~${seg.stepsUsed.join(",")}`,
+            Repeats: seg.repeatsTotal,
+            msEach: "(agg)",
+            msTotal: seg.msTotal,
+            Before: null,
+            After: null,
+            Delta: null,
+            Remaining: null,
+          });
         }
 
         const after = await read();
         const delta = after - before;
-
-        rows.push({
-          Batch: 0,
-          Phase: "AGG",
-          HeldKey: hk ?? "-",
-          Dir: dirKey,
-          StepSize: `~${agg.stepsUsed.join(",")}`,
-          Repeats: agg.repeatsTotal,
-          msEach: "(agg)",
-          msTotal: agg.msTotal,
-          Before: Number(before.toFixed(6)),
-          After: Number(after.toFixed(6)),
-          Delta: Number(delta.toFixed(6)),
-          Remaining: Number((target - after).toFixed(6)),
-        });
+        const lastIdx = rows.length - 1;
+        if (lastIdx >= 0) {
+          rows[lastIdx].Before = Number(before.toFixed(6));
+          rows[lastIdx].After = Number(after.toFixed(6));
+          rows[lastIdx].Delta = Number(delta.toFixed(6));
+          rows[lastIdx].Remaining = Number((target - after).toFixed(6));
+        }
 
         current = after;
         render(current);
       }
 
+      // Phase B: one single calibrated step (best HK) to snap closer if needed
       const remainingB = target - current;
       const absRemB = Math.abs(remainingB);
       if (absRemB <= tol) break;
 
-      const singleEntry = pickLargestStepWithinHK(absRemB, plan, hk, tol);
+      const hkB = pickHeldKeyForRemaining(absRemB, plan);
+      const singleEntry = pickLargestStepWithinHK(absRemB, plan, hkB, tol);
+
       if (singleEntry) {
         const dirKey = remainingB > 0 ? dirKeys.positive : dirKeys.negative;
         const before = current;
@@ -265,7 +330,7 @@ export async function moveTo({
         rows.push({
           Batch: 0,
           Phase: "SINGLE",
-          HeldKey: hk ?? "-",
+          HeldKey: singleEntry.heldKey ?? "-",
           Dir: dirKey,
           StepSize: singleEntry.step,
           Repeats: 1,
@@ -281,40 +346,29 @@ export async function moveTo({
         render(current);
       }
 
-      if ((!agg || agg.msTotal <= 0) && !singleEntry) break;
+      if ((!aggAll || aggAll.segments.length === 0) && !singleEntry) {
+        // nothing more to do in pre-pass
+        break;
+      }
     }
   }
   /* -------------------------------------------------------------------------- */
 
-  for (let batch = 1; batch <= maxSteps; batch++) {
-    render(current);
+  // MAIN LOOP: fine approach using (largest that fits) repeats each batch
+  while (Math.abs(target - current) > tol && rows.length < maxSteps) {
+    batch += 1;
+
     const remaining = target - current;
     const absRem = Math.abs(remaining);
-    if (absRem <= tol) {
-      render(current);
-      return {
-        ok: true,
-        reason: "within_tolerance",
-        steps: batch - 1,
-        final: current,
-        error: remaining,
-        rows,
-      };
-    }
-
-    let chosen = chooseStep(absRem);
     const dirKey = remaining > 0 ? dirKeys.positive : dirKeys.negative;
 
-    const isSmallest = chosen.step === smallest.step;
-    const nextSmaller = isSmallest ? smallest.step : nextStepOf(chosen.step);
-    const safety = isSmallest
-      ? Math.max(tol, smallest.step * 0.5)
-      : Math.max(nextSmaller * 0.5, tol);
+    // Choose the largest single step that fits across ALL HKs
+    const cap = Math.max(0, absRem - tol);
+    const chosen =
+      plan.find((p) => p.step <= cap) || plan[plan.length - 1]; // fallback smallest
 
-    let repeats = Math.floor((absRem - safety) / chosen.step);
-    if (!Number.isFinite(repeats) || repeats < 1) repeats = 1;
-    repeats = Math.min(repeats, MAX_REPEATS_PER_BATCH);
-
+    // Compute repeats but avoid overstepping cap
+    const repeats = Math.max(1, Math.floor(cap / chosen.step));
     const msTotal = await applyCalibratedBatch(
       dirKey,
       chosen,
@@ -343,40 +397,45 @@ export async function moveTo({
 
     current = after;
     render(current);
+  }
 
-    if (isSmallest) {
-      smallestTries += repeats;
-      if (smallestTries >= smallestMaxTries) {
-        const finalRem = target - current;
-        if (Math.abs(finalRem) <= tol) {
-          return {
-            ok: true,
-            reason: "within_tolerance",
-            steps: batch,
-            final: current,
-            error: finalRem,
-            rows,
-          };
-        }
-        return {
-          ok: false,
-          reason: "smallest_step_exhausted",
-          steps: batch,
-          final: current,
-          error: finalRem,
-          rows,
-        };
-      }
-    } else {
-      smallestTries = 0;
-    }
+  // If still outside tol, try nudging with the smallest step a few times
+  let tries = 0;
+  while (Math.abs(target - current) > tol && tries < smallestMaxTries) {
+    tries++;
+    const remaining = target - current;
+    const dirKey = remaining > 0 ? dirKeys.positive : dirKeys.negative;
+    const smallest = plan[plan.length - 1];
+
+    await applyCalibratedBatch(dirKey, smallest, 1, lead, tail);
+
+    const before = current;
+    const after = await read();
+    const delta = after - before;
+
+    rows.push({
+      Batch: batch,
+      Dir: dirKey,
+      StepSize: smallest.step,
+      Repeats: 1,
+      msEach: smallest.ms,
+      msTotal: smallest.ms,
+      HeldKey: smallest.heldKey ?? "-",
+      Before: Number(before.toFixed(6)),
+      After: Number(after.toFixed(6)),
+      Delta: Number(delta.toFixed(6)),
+      Remaining: Number((target - after).toFixed(6)),
+    });
+
+    current = after;
+    render(current);
   }
 
   const finalErr = target - current;
   render(current);
   return {
     ok: Math.abs(finalErr) <= tol,
-    reason: "max_steps",
+    reason: Math.abs(finalErr) <= tol ? "ok" : "max_steps",
     steps: rows.length,
     final: current,
     error: finalErr,
