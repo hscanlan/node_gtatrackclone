@@ -1,27 +1,37 @@
 [
   {
-    "target": 1,
-    "ms": 20,
-    "heldKey": "TRIANGLE"
-  },
-  {
-    "target": 2,
-    "ms": 30,
-    "heldKey": "TRIANGLE"
-  },
-  {
-    "target": 0.1,
-    "ms": 14,
-    "heldKey": "-"
+    "target": 0.001,
+    "ms": 4,
+    "heldKey": "SQUARE"
   },
   {
     "target": 0.01,
-    "ms": 157,
+    "ms": 173,
     "heldKey": "SQUARE"
   },
   {
-    "target": 0.001,
-    "ms": 10,
+    "target": 0.1,
+    "ms": 1688,
     "heldKey": "SQUARE"
+  },
+  {
+    "target": 1,
+    "ms": 149,
+    "heldKey": "-"
+  },
+  {
+    "target": 2,
+    "ms": 16,
+    "heldKey": "TRIANGLE"
+  },
+  {
+    "target": 3,
+    "ms": 32,
+    "heldKey": "TRIANGLE"
+  },
+  {
+    "target": 4,
+    "ms": 63,
+    "heldKey": "TRIANGLE"
   }
 ]

@@ -11,7 +11,7 @@ async function main() {
 
     await sleep(2000);
 
-    await tapName("DPAD_UP", 100); // confirm
+    await tapName("DPAD_UP", 200); // confirm
     
     const result = await readCurrent(TEST_REGION, AXIS_LABEL, {
       minConf: 80,
@@ -31,7 +31,7 @@ async function main() {
       gamma: 0.9,       // optional, can help OCR on greys
     });
 
-    await tapName("DPAD_DOWN", 100); // confirm
+    await tapName("DPAD_DOWN", 200); // confirm
    
 
     console.log("OCR Result:", result);

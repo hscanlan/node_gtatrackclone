@@ -1,6 +1,9 @@
 // utils.js
 import { captureRegion } from "../capture-window.js";
 import { extractText } from "../ocr-text.js";
+import { sleep } from "./sleep.js";
+
+import { tapName, keyDownName, keyUpName } from "../helpers/keys.js";
 
 // ----- Utils -----
 /**
@@ -11,28 +14,33 @@ import { extractText } from "../ocr-text.js";
  *  - minConf: 60
  * You can override via the optional third param (opts) without breaking old calls.
  */
-export async function readCurrent(region, axis, opts = {}) {
+export async function readCurrent(region, axis, opts = {}) 
+{
+  console.log('readCurrent');
+
   const { buffer } = await captureRegion({
     screenIndex: opts.screenIndex ?? 1, // keep your original default
-    region
+    region,
   });
 
   // Use the new OCR helper; still numeric-only by default
   const val = await extractText(buffer, {
     numericOnly: true,
     minConf: opts.minConf ?? 60,
-    debug: !!opts.debug,                     // optional: save orig/proc images with timestamp
+    debug: !!opts.debug, // optional: save orig/proc images with timestamp
     debugOutBase: opts.debugOutBase ?? `ocr-${axis}`,
-    showConfidence: !!opts.showConfidence,   // optional: log per-char confidence
+    showConfidence: !!opts.showConfidence, // optional: log per-char confidence
     // Optional preprocessing knobs (only used if you pass them):
     scale: opts.scale,
     sharpen: opts.sharpen,
-    threshold: opts.threshold
+    threshold: opts.threshold,
   });
 
   if (!Number.isFinite(val)) {
     throw new Error(`OCR failed on ${axis}: "${val}"`);
   }
+
+
   return val;
 }
 

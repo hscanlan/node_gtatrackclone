@@ -1,4 +1,5 @@
 // cloneJob.js — X-only with menu movements (enter -> move X -> exit)
+// Adds CLI range selection: --start <n> --end <n>
 
 import fs from "fs/promises";
 import { tapName, repeat } from "./helpers/keys.js";
@@ -8,6 +9,7 @@ import MenuScript from "./classes/MenuScript.js";
 import { to360From180 } from "./helpers/utils.js";
 import { loadCalibration } from "./helpers/calibrationIO.js";
 import { moveTo } from "./helpers/moveTo.js";
+import { moveToTest } from "./helpers/moveToTest.js";
 
 // ===== Config =====
 
@@ -15,7 +17,7 @@ import { moveTo } from "./helpers/moveTo.js";
 const positionCal = await loadCalibration("positionCal.json");
 const rotationCal = await loadCalibration("rotationCal.json");
 
-// OCR region for X field (adjust if needed)
+// OCR regions (leave as-is unless you need to tweak)
 const X_REGION = { left: 760, top: 168, width: 140, height: 35 };
 const Y_REGION = { left: 760, top: 204, width: 140, height: 35 };
 const Z_REGION = { left: 760, top: 244, width: 140, height: 35 };
@@ -24,16 +26,37 @@ const XROT_REGION = { left: 708, top: 168, width: 140, height: 35 };
 const YROT_REGION = { left: 708, top: 204, width: 140, height: 35 };
 const ZROT_REGION = { left: 708, top: 242, width: 140, height: 35 };
 
-// Move tolerances (tighten/loosen to taste)
-const MOVE_ABS_TOL = 0.0;
-const MOVE_REL_TOL = 0.0;
+// Move tolerances
+const MOVE_ABS_TOL = 0.01;
+const MOVE_REL_TOL = 0.01;
+
+const HOLD_LEAD_MS = 0;
+const HOLD_TAIL_MS = 0;
+
+const CAL_TOL_PCT = 0.0005;
+const CAL_ABS_TOL = 0.000025;
 
 // Limits
 const START_DELAY_MS = 8000;
 const MAX_STEPS = 1000;
 const SMALLEST_MAX_TRIES = 50;
 
-// Run a named script block like "enter" or "exit"
+// ===== CLI helpers =====
+function getArg(name) {
+  const idx = process.argv.indexOf(name);
+  if (idx !== -1 && idx + 1 < process.argv.length) {
+    return process.argv[idx + 1];
+  }
+  return null;
+}
+
+function parseIndex(val) {
+  if (val == null) return null;
+  const n = Number(val);
+  return Number.isInteger(n) ? n : null;
+}
+
+// ===== Menu runner =====
 async function runMenuScript(script, blockName) {
   if (!script || !blockName) throw new Error("runMenuScript: bad args");
   const block = script.menuCommands.find((b) => b[blockName]);
@@ -55,64 +78,52 @@ async function runMenuScript(script, blockName) {
   }
 }
 
-// ===== main Position placement using calibrated mover =====
+// ===== Position placement using calibrated mover =====
 async function runPlacementXYZ({ calibration, target, region, targetName }) {
-  // Assumes your "enter" script leaves the cursor focused in the X field.
-  const result = await moveTo({
+  console.log(`\nTwo-phase move starts in 3 seconds… (Target: ${target})`);
+  const result = await moveToTest({
     target: target,
     calibration,
-    axisLabel: targetName,
     dirKeys: { positive: "DPAD_RIGHT", negative: "DPAD_LEFT" },
+    region: region, 
+    wholeTol: 2, fracTol: 0.02,
     tolerances: { relPct: MOVE_REL_TOL, absTol: MOVE_ABS_TOL },
-    maxSteps: MAX_STEPS,
-    smallestMaxTries: SMALLEST_MAX_TRIES,
-    ui: { live: true },
-    lead: 0,
-    tail: 0,
-    region: region,
+    absTol: CAL_ABS_TOL,
+    lead: HOLD_LEAD_MS,
+    tail: HOLD_TAIL_MS,
   });
 
-  console.log(
-    `[${targetName}] target=${target.toFixed(6)} final=${result.final.toFixed(
-      6
-    )} err=${result.error.toFixed(6)} steps=${result.steps} reason=${
-      result.reason
-    }`
-  );
+  console.log("\nTwo-phase move result:", {
+    ok: result.ok,
+    target: result.target,
+    afterPhase1: Number(result.afterPhase1.toFixed(6)),
+    final: Number(result.final.toFixed(6)),
+    err: Number((result.target - result.final).toFixed(6)),
+  });
 
   return result;
 }
 
-// ===== main Rotation placement using calibrated mover =====
+// ===== Rotation placement using calibrated mover =====
 async function runPlacementROT({ calibration, target, region, targetName }) {
-  // Assumes your "enter" script leaves the cursor focused in the X field.
-
   const convertedTarget = to360From180(target);
-
   console.log("Target: " + target + " " + "Converted: " + convertedTarget);
 
-  const result = await moveTo({
+  const result = await moveToTest({
     target: convertedTarget,
     calibration,
     axisLabel: targetName,
     dirKeys: { positive: "DPAD_RIGHT", negative: "DPAD_LEFT" },
     tolerances: { relPct: MOVE_REL_TOL, absTol: MOVE_ABS_TOL },
     maxSteps: MAX_STEPS,
+    wholeTol: 2, fracTol: 0.02,
     smallestMaxTries: SMALLEST_MAX_TRIES,
     ui: { live: true },
     lead: 30,
     tail: 10,
     region: region,
-    rotation: true
+    rotation: true,
   });
-
-  console.log(
-    `[${targetName}] target= ${target} converted target= ${convertedTarget.toFixed(
-      6
-    )} final= ${result.final.toFixed(6)} err=${result.error.toFixed(6)} steps=${
-      result.steps
-    } reason=${result.reason}`
-  );
 
   return result;
 }
@@ -124,7 +135,46 @@ async function main() {
       root: "mission",
     });
 
-    // 2) load menu scripts (enter/exit)
+    // 2) parse CLI index range (inclusive)
+    const total = rows.length;
+    const minIndex = 0;
+    const maxIndex = Math.max(0, total - 1);
+
+    let startIdx = parseIndex(getArg("--start"));
+    let endIdx = parseIndex(getArg("--end"));
+
+    // defaults if not provided
+    if (startIdx == null) startIdx = minIndex;
+    if (endIdx == null) endIdx = maxIndex;
+
+    // clamp to valid range
+    startIdx = Math.max(minIndex, Math.min(startIdx, maxIndex));
+    endIdx = Math.max(minIndex, Math.min(endIdx, maxIndex));
+
+    // ensure start <= end
+    if (startIdx > endIdx) {
+      // swap
+      const t = startIdx;
+      startIdx = endIdx;
+      endIdx = t;
+    }
+
+    const count = endIdx - startIdx + 1;
+
+    console.log(
+      [
+        `Rows available: ${total} (valid index range: ${minIndex}..${maxIndex})`,
+        `Selected range: ${startIdx}..${endIdx} (count: ${count})`,
+        `Starting in ${START_DELAY_MS / 1000}s ...`,
+        ``,
+        `Tip: pass --start N --end M to change the range.`,
+        `  e.g., node cloneJob.js --start 10 --end 25`,
+      ].join("\n")
+    );
+
+    await sleep(START_DELAY_MS);
+
+    // 3) load menu scripts (enter/exit)
     const raw = await fs.readFile(
       new URL("./commands/propMenu.json", import.meta.url),
       "utf-8"
@@ -135,14 +185,9 @@ async function main() {
         new MenuScript(Math.abs(s.modelNumber), s.modelName, s.menuCommands)
     );
 
-    console.log(
-      `Loaded ${rows.length} rows. Starting in ${START_DELAY_MS / 1000}s ...`
-    );
-    await sleep(START_DELAY_MS);
-
     const summary = [];
 
-    for (let i = 0; i < rows.length; i++) {
+    for (let i = startIdx; i <= endIdx; i++) {
       const row = rows[i] || {};
       const modelNumber = row?.model;
       const targetX = Number(row?.location?.x);
@@ -167,9 +212,7 @@ async function main() {
 
       try {
         console.log(
-          `\n▶ Row ${i + 1}/${rows.length} model=${modelNumber} "${
-            script.modelName
-          }"`
+          `\n▶ Row ${i + 1}/${rows.length} model=${modelNumber} "${script.modelName}"`
         );
 
         // enter menu flow (your JSON drives the key taps)
@@ -185,7 +228,7 @@ async function main() {
         await sleep(225);
         await repeat("DPAD_DOWN", 2);
 
-        // move X using calibrated steps (live table prints during the move)
+        // X
         const xpos = await runPlacementXYZ({
           calibration: positionCal,
           target: targetX,
@@ -193,11 +236,9 @@ async function main() {
           targetName: `index ${i} for X`,
         });
 
-        // Move down to Y field
+        // Y
         await tapName("DPAD_DOWN", 225);
         await sleep(225);
-
-        // move Y using calibrated steps (live table prints during the move)
         const ypos = await runPlacementXYZ({
           calibration: positionCal,
           target: targetY,
@@ -205,11 +246,9 @@ async function main() {
           targetName: `index ${i} for Y`,
         });
 
-        // Move down to Z field
+        // Z
         await tapName("DPAD_DOWN", 225);
         await sleep(225);
-
-        // move Z using calibrated steps (live table prints during the move)
         const zpos = await runPlacementXYZ({
           calibration: positionCal,
           target: targetZ,
@@ -217,7 +256,7 @@ async function main() {
           targetName: `index ${i} for Z`,
         });
 
-        //Move to Override Position
+        // Override Position confirm path
         await repeat("CIRCLE", 1);
         await sleep(225);
         await tapName("DPAD_DOWN", 225);
@@ -226,12 +265,8 @@ async function main() {
         await tapName("CROSS", 225);
         await sleep(500);
 
-        // Move down to Rotation X
+        // Rotation X (actually Y in Rockstar)
         await repeat("DPAD_DOWN", 2);
-
-        // NOTE:
-        // Rockstar for some reason has their X and Y positions inverted
-        // so we use targetY here even though its the X axis. Stupid idiots.
         const xRot = await runPlacementROT({
           calibration: rotationCal,
           target: targetYrot,
@@ -239,10 +274,7 @@ async function main() {
           targetName: `index ${i} for XROT`,
         });
 
-        // NOTE:
-        // Rockstar for some reason has their X and Y positions inverted
-        // so we use targetX here even though its the Y axis. Stupid idiots.
-        // Move down to Rotation Y
+        // Rotation Y (actually X in Rockstar)
         await repeat("DPAD_DOWN", 1);
         const yRot = await runPlacementROT({
           calibration: rotationCal,
@@ -251,7 +283,7 @@ async function main() {
           targetName: `index ${i} for YROT`,
         });
 
-        // Move down to Rotation Z
+        // Rotation Z
         await repeat("DPAD_DOWN", 1);
         const zRot = await runPlacementROT({
           calibration: rotationCal,
@@ -262,7 +294,7 @@ async function main() {
 
         await sleep(225);
 
-        // Confirm & exit as before
+        // Confirm & exit
         await tapName("CROSS", 500); // confirm
         await sleep(225);
         await tapName("CIRCLE", 225);
@@ -272,12 +304,21 @@ async function main() {
 
         await repeat("DPAD_DOWN", 3);
 
-        // exit menu flow
         await runMenuScript(script, "exit");
 
-        // show summary after each iteration
-        console.clear();
+        // optional: record into summary (customize if you want)
+        summary.push({
+          i,
+          model: modelNumber,
+          X: xpos?.final ?? null,
+          Y: ypos?.final ?? null,
+          Z: zpos?.final ?? null,
+          XROT: xRot?.final ?? null,
+          YROT: yRot?.final ?? null,
+          ZROT: zRot?.final ?? null,
+        });
 
+        console.clear();
         console.table(summary);
       } catch (err) {
         console.error(`Row ${i}: error:`, err);

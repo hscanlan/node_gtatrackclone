@@ -1,21 +1,18 @@
 // moveToTest.js
-// Simpler "two-phase" mover:
-//   1) Move to the integer part of target using only whole-number steps (>= 1).
-//   2) Finish to exact target using only decimal steps (< 1).
+// Simple movers with tolerances:
+//   - moveWholeOnly: only whole-number steps (>=1) toward integer(target) with wholeTol
+//   - moveDecimalsOnly: only decimal steps (<1) toward exact target with fracTol
+//   - moveToTest: two-phase (whole→integer within wholeTol, then decimals→exact within fracTol)
 //
-// Assumptions:
-// - You have helpers: tapName, keyDownName, keyUpName, readCurrent, sleep
-// - Calibration items: { target: number, ms: number, heldKey: string|"-" }
-// - Steps are "distance per ms calibration": we just multiply ms * repeats per step picked.
+// Requires helpers: tapName, keyDownName, keyUpName, readCurrent, sleep
 
-import { tapName, keyDownName, keyUpName } from "./helpers/keys.js";
-import { readCurrent } from "./helpers/utils.js";
-import { sleep } from "./helpers/sleep.js";
+import { tapName, keyDownName, keyUpName } from "../helpers/keys.js";
+import { readCurrent } from "../helpers/utils.js";
+import { sleep } from "../helpers/sleep.js";
 
 /* ----------------------------- Utilities ---------------------------------- */
 
 function buildPlan(calibration) {
-  // Normalize & sort (largest → smallest)
   return calibration
     .map((c) => ({
       step: Number(c.target),
@@ -23,7 +20,7 @@ function buildPlan(calibration) {
       heldKey: c.heldKey ?? "-",
     }))
     .filter((p) => isFinite(p.step) && p.step > 0 && isFinite(p.ms) && p.ms > 0)
-    .sort((a, b) => b.step - a.step);
+    .sort((a, b) => b.step - a.step); // largest → smallest
 }
 
 function splitWholeVsDecimal(plan) {
@@ -33,13 +30,8 @@ function splitWholeVsDecimal(plan) {
   };
 }
 
-// Direction keys you pass in; default is LR for 1D axis
 const DEFAULT_DIR_KEYS = { positive: "DPAD_RIGHT", negative: "DPAD_LEFT" };
 
-/**
- * Execute one aggregated segment for a given heldKey.
- * If heldKey is "-" -> just tap; otherwise press, tap, release.
- */
 async function execSegment(dirKey, heldKey, msTotal, lead = 20, tail = 10) {
   if (heldKey && heldKey !== "-") {
     await keyDownName(heldKey);
@@ -56,19 +48,16 @@ async function execSegment(dirKey, heldKey, msTotal, lead = 20, tail = 10) {
 }
 
 /**
- * Greedy aggregator over a plan (already filtered to whole or frac),
- * selecting from largest → smallest. Returns grouped segments by heldKey
- * so each heldKey is pressed once. Stops when cap is covered or no step fits.
- *
- * NOTE: If exact coverage is needed (e.g., to hit an integer), pass exact=true.
- * If exact=true and we have step=1 available, we will exactly hit cap.
- * If step=1 does not exist, we'll get as close as possible without exceeding cap.
+ * Greedy aggregator over a (filtered) plan (desc by step).
+ * - Picks largest→smallest steps under cap
+ * - Groups adjacent picks by heldKey so each held key is pressed once
+ * - If exact=true, tries to exactly top off cap by finding a step that divides the residual.
  */
 function aggregateGreedy(cap, subPlan, { exact = false } = {}) {
   if (cap <= 0 || subPlan.length === 0) return { segments: [], covered: 0, exactHit: cap === 0 };
 
   let covered = 0;
-  const picks = []; // linear sequence of picks
+  const picks = [];
 
   for (const p of subPlan) {
     if (covered >= cap) break;
@@ -79,10 +68,8 @@ function aggregateGreedy(cap, subPlan, { exact = false } = {}) {
     covered += repeats * p.step;
   }
 
-  // Try to top off exactly if requested and we have step=1 (or any step that fits the residual exactly)
   if (exact && covered < cap) {
     const residual = cap - covered;
-    // Look for a step that divides residual exactly
     const exactStep = subPlan.find((p) => Math.abs(residual / p.step - Math.round(residual / p.step)) < 1e-12);
     if (exactStep) {
       const repeats = Math.round(residual / exactStep.step);
@@ -93,7 +80,6 @@ function aggregateGreedy(cap, subPlan, { exact = false } = {}) {
     }
   }
 
-  // Group adjacent by heldKey for one press/tap/release per held
   const segments = [];
   for (const pick of picks) {
     const last = segments[segments.length - 1];
@@ -118,17 +104,16 @@ function aggregateGreedy(cap, subPlan, { exact = false } = {}) {
   return {
     segments,
     covered,
-    exactHit: Math.abs(covered - cap) < 1e-12, // boolean
+    exactHit: Math.abs(covered - cap) < 1e-12,
   };
 }
 
 /* --------------------------- Phase runners -------------------------------- */
 
 /**
- * Phase 1: Move to the integer part of target using ONLY whole-number steps (>=1).
- * - Integer target is trunc(target) (toward zero): eg -1235.324 -> -1235;  1235.324 -> 1235
- * - Tries to hit integer EXACTLY (exact=true) if possible.
- * - If exact coverage can't be achieved (no step=1), it gets as close as possible (< 1 away).
+ * Whole-number phase: drive to integer(target) using steps >= 1.
+ * Stops when |now - targetInt| <= wholeTol.
+ * Returns the latest on-screen reading so the next phase can reuse it.
  */
 async function moveToIntegerPart({
   target,
@@ -138,86 +123,71 @@ async function moveToIntegerPart({
   lead = 20,
   tail = 10,
   region,
+  wholeTol = 0.49, // ★ NEW: tolerance for how close to the integer we need to be
 }) {
   const targetInt = target < 0 ? Math.ceil(target) : Math.floor(target); // trunc toward 0
   let now = current;
 
-  // If already at the integer, nothing to do.
-  if (Math.trunc(now) === targetInt && Math.abs(now - targetInt) < 1) {
-    return { current: now, reachedInt: true };
-  }
-
-  // We always move in the direction of (targetInt - now)
-  // BUT we only allow steps >=1.
-  const maxCycles = 8; // safety
+  const maxCycles = 8;
   for (let i = 0; i < maxCycles; i++) {
     const remaining = targetInt - now;
     const absCap = Math.abs(remaining);
 
-    if (absCap < 1e-12) {
-      return { current: now, reachedInt: true };
+    // If we're already within tolerance, stop.
+    if (absCap <= wholeTol) {
+      return { current: now, reachedInt: true, targetInt };
     }
 
     const dirKey = remaining > 0 ? dirKeys.positive : dirKeys.negative;
-
-    // Build an aggregate across whole steps only, aim for exact hit if possible.
     const agg = aggregateGreedy(absCap, planWhole, { exact: true });
 
     if (!agg.segments.length) {
-      // Nothing fits (no >=1 steps) — cannot proceed with whole steps.
-      return { current: now, reachedInt: Math.trunc(now) === targetInt };
+      // Nothing to do; report whether we're within tolerance.
+      return { current: now, reachedInt: Math.abs(now - targetInt) <= wholeTol, targetInt };
     }
 
-    // Execute each segment
     for (const seg of agg.segments) {
       await execSegment(dirKey, seg.heldKey, seg.msTotal, lead, tail);
     }
 
-    // Read position and loop again if needed
+    // Single capture per loop.
     now = Number(await readCurrent(region));
-
-    // If we got within < 1 of the integer but not exact (because plan/gcd), we still finish phase.
-    if (Math.abs(now - targetInt) < 1) {
-      // Stop Phase 1 here; decimals will finish.
-      return { current: now, reachedInt: Math.abs(now - targetInt) < 1e-9 };
-    }
   }
 
-  // Failsafe return
-  return { current: Number(await readCurrent(region)), reachedInt: Math.trunc(current) === (target < 0 ? Math.ceil(target) : Math.floor(target)) };
+  return { current: now, reachedInt: Math.abs(now - targetInt) <= wholeTol, targetInt };
 }
 
 /**
- * Phase 2: Finish with decimals ONLY (<1 steps), never switching back to wholes.
- * - Works in the direction of (target - current) each loop.
- * - Greedy on fractional plan; breaks when within absTol.
- * - If we overshoot within this phase, we still only use fractional steps to correct.
+ * Decimal phase: refine to target using <1 steps.
+ * Stops when |target - now| <= fracTol.
+ * IMPORTANT: It does NOT capture at the start; it trusts the `current` you pass in.
+ * It captures once after executing segments in each iteration.
  */
 async function finishWithDecimals({
   target,
-  current,
+  current,          // trusted initial reading passed in from whole phase
   planFrac,
   dirKeys = DEFAULT_DIR_KEYS,
-  absTol = 0.0005,   // default finishing tolerance
+  // Kept for backward compat; prefer fracTol
+  absTol,            // deprecated alias
+  fracTol = 0.0005,  // ★ NEW: tolerance for fractional finish
   maxIters = 200,
   lead = 15,
   tail = 8,
   region,
 }) {
+  const tol = Number.isFinite(fracTol) ? fracTol : (Number.isFinite(absTol) ? absTol : 0.0005);
   let now = current;
 
   for (let i = 0; i < maxIters; i++) {
     const remaining = target - now;
     const absCap = Math.abs(remaining);
-
-    if (absCap <= absTol) break;
+    if (absCap <= tol) break;
 
     const dirKey = remaining > 0 ? dirKeys.positive : dirKeys.negative;
 
-    // Aggregate using only fractional steps (<1)
     const agg = aggregateGreedy(absCap, planFrac, { exact: false });
     if (!agg.segments.length) {
-      // No fractional step fits the remaining (tiny) distance. Nudge with smallest fractional once.
       const smallest = planFrac[planFrac.length - 1];
       if (!smallest) break;
       await execSegment(dirKey, smallest.heldKey ?? "-", Math.max(1, Math.round(smallest.ms)), lead, tail);
@@ -227,26 +197,116 @@ async function finishWithDecimals({
       }
     }
 
+    // Exactly one capture per iteration (after we move).
     now = Number(await readCurrent(region));
   }
 
-  return { current: now, ok: Math.abs(target - now) <= absTol };
+  return { current: now, ok: Math.abs(target - now) <= tol, tol };
 }
 
 /* ------------------------------ Public API -------------------------------- */
 
+/** Whole-only test: push using only whole steps (>=1) toward integer(target). */
+export async function moveWholeOnly({
+  target,
+  calibration,
+  dirKeys = DEFAULT_DIR_KEYS,
+  region,
+  lead = 20,
+  tail = 10,
+  wholeTol = 0.49, // ★ NEW
+} = {}) {
+  if (!Array.isArray(calibration) || calibration.length === 0) {
+    throw new Error("calibration (non-empty array) is required");
+  }
+  const plan = buildPlan(calibration);
+  const { whole: planWhole } = splitWholeVsDecimal(plan);
+  if (planWhole.length === 0) throw new Error("No whole-number steps (>=1) in calibration.");
+
+  let current = Number(await readCurrent(region));
+  const p1 = await moveToIntegerPart({ target, current, planWhole, dirKeys, lead, tail, region, wholeTol });
+  const targetInt = p1.targetInt ?? (target < 0 ? Math.ceil(target) : Math.floor(target));
+
+  console.log("\n\nmoveWholeOnly summary:");
+  console.table([
+    {
+      Phase: "WholeOnly",
+      TargetInteger: targetInt,
+      Final: Number(p1.current.toFixed(6)),
+      WithinWholeTol: p1.reachedInt,
+      WholeTol: wholeTol,
+    },
+  ]);
+
+  return { final: p1.current, afterPhase1: p1.current, targetInt, reachedInt: p1.reachedInt, wholeTol };
+}
+
 /**
- * moveToTest:
- * 1) Go to integer part of target using whole steps only.
- * 2) Finish to exact target using decimal steps only.
+ * Decimals-only test: from current to target using only decimal steps (<1).
+ * If you ALREADY have a fresh reading, pass it in as `initialCurrent` to skip
+ * the upfront capture.
+ */
+export async function moveDecimalsOnly({
+  target,
+  calibration,
+  dirKeys = DEFAULT_DIR_KEYS,
+  region,
+  fracTol = 0.0005, // ★ NEW
+  // kept for compat; if provided and fracTol not set, we'll use this
+  absTol,           // deprecated alias
+  lead = 15,
+  tail = 8,
+  initialCurrent = null,
+} = {}) {
+  if (!Array.isArray(calibration) || calibration.length === 0) {
+    throw new Error("calibration (non-empty array) is required");
+  }
+  const plan = buildPlan(calibration);
+  const { frac: planFrac } = splitWholeVsDecimal(plan);
+  if (planFrac.length === 0) throw new Error("No decimal steps (<1) in calibration.");
+
+  const startCurrent = (initialCurrent != null && Number.isFinite(initialCurrent))
+    ? Number(initialCurrent)
+    : Number(await readCurrent(region));
+
+  const p2 = await finishWithDecimals({
+    target,
+    current: startCurrent,
+    planFrac,
+    dirKeys,
+    fracTol,
+    absTol, // legacy
+    lead,
+    tail,
+    region
+  });
+
+  console.log("\n\nmoveDecimalsOnly summary:");
+  console.table([
+    {
+      Phase: "DecimalsOnly",
+      Target: Number(target.toFixed(6)),
+      Final: Number(p2.current.toFixed(6)),
+      WithinFracTol: p2.ok,
+      FracTol: p2.tol,
+    },
+  ]);
+
+  return { final: p2.current, ok: p2.ok, target, fracTol: p2.tol };
+}
+
+/** Two-phase test: whole→integer (within wholeTol), then decimals→exact (within fracTol).
+ *  Reuses the final read from whole-phase as the starting read for decimals.
  */
 export async function moveToTest({
   target,
   calibration,
   dirKeys = DEFAULT_DIR_KEYS,
   region,
-  // Optional tuning knobs:
-  absTol = 0.0005,
+  wholeTol = 0.49,  // ★ NEW
+  fracTol = 0.0005, // ★ NEW
+  // kept for compat with older callers
+  absTol,           // deprecated alias of fracTol
   lead = 20,
   tail = 10,
 } = {}) {
@@ -260,47 +320,31 @@ export async function moveToTest({
     throw new Error("calibration produced no valid steps");
   }
 
+  // Initial capture once at the very beginning.
   let current = Number(await readCurrent(region));
 
-  // ---------------- Phase 1: to integer part (whole steps only)
-  const p1 = await moveToIntegerPart({
-    target,
-    current,
-    planWhole,
-    dirKeys,
-    lead,
-    tail,
-    region,
-  });
+  // Phase 1: whole numbers to integer(target), within wholeTol
+  const p1 = planWhole.length
+    ? await moveToIntegerPart({ target, current, planWhole, dirKeys, lead, tail, region, wholeTol })
+    : { current, reachedInt: Math.abs((target < 0 ? Math.ceil(target) : Math.floor(target)) - current) <= wholeTol };
+
+  // Reuse the last capture from phase 1 as the starting point for phase 2.
   current = p1.current;
 
-  // ---------------- Phase 2: finish with decimals only
-  const p2 = await finishWithDecimals({
-    target,
-    current,
-    planFrac,
-    dirKeys,
-    absTol,
-    lead,
-    tail,
-    region,
-  });
+  // Phase 2: decimals to exact target — within fracTol (or absTol if provided)
+  const p2 = planFrac.length
+    ? await finishWithDecimals({ target, current, planFrac, dirKeys, fracTol, absTol, lead, tail, region })
+    : { current, ok: Math.abs(target - current) <= (Number.isFinite(fracTol) ? fracTol : (Number.isFinite(absTol) ? absTol : 0.0005)), tol: Number.isFinite(fracTol) ? fracTol : absTol };
 
   const final = p2.current;
   const ok = p2.ok;
+  const tInt = p1.targetInt ?? (target < 0 ? Math.ceil(target) : Math.floor(target));
 
-  // Simple summary log (optional)
-  const tInt = target < 0 ? Math.ceil(target) : Math.floor(target);
   console.log("\n\nmoveToTest summary:");
   console.table([
-    { Phase: "Whole→Integer", TargetInteger: tInt, AfterPhase1: Number(p1.current.toFixed(6)), ReachedIntegerExactly: p1.reachedInt },
-    { Phase: "Decimal Finish", Target: Number(target.toFixed(6)), Final: Number(final.toFixed(6)), WithinTol: ok },
+    { Phase: "Whole→Integer", TargetInteger: tInt, AfterPhase1: Number(p1.current.toFixed(6)), WithinWholeTol: p1.reachedInt, WholeTol: wholeTol },
+    { Phase: "Decimal Finish", Target: Number(target.toFixed(6)), Final: Number(final.toFixed(6)), WithinFracTol: ok, FracTol: p2.tol },
   ]);
 
-  return {
-    ok,
-    final,
-    target,
-    afterPhase1: p1.current,
-  };
+  return { ok, final, target, afterPhase1: p1.current, wholeTol, fracTol: p2.tol };
 }
