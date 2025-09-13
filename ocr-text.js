@@ -152,17 +152,7 @@ export async function extractText(
   const srcW = meta.width || 0;
   const srcH = meta.height || 0;
 
-  // Resolve kernel from config via readCurrent('ocr'), unless explicitly provided in options
-  let kernelFromConfig;
-  try {
-    const cfg = await readCurrent?.("ocr");
-    if (cfg && typeof cfg.kernel === "string" && cfg.kernel.length) {
-      kernelFromConfig = cfg.kernel;
-    }
-  } catch {
-    // ignore config errors; fall back to defaults
-  }
-  const effectiveKernel = kernel ?? kernelFromConfig ?? "nearest";
+  const effectiveKernel =  "nearest";
 
   let proc = sharp(origBuffer);
 
@@ -276,7 +266,7 @@ const { data } = await worker.recognize(processedBuffer);
 
   await worker.terminate();
 
-  console.log("RAW: " + raw);
+  //console.log("RAW: " + raw);
   
   return toThreeDecimalNumber(raw);
 }

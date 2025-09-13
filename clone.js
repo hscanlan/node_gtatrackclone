@@ -10,6 +10,7 @@ import { to360From180 } from "./helpers/utils.js";
 import { loadCalibration } from "./helpers/calibrationIO.js";
 import { moveTo } from "./helpers/moveTo.js";
 import { moveToTest } from "./helpers/moveToTest.js";
+import { moveTo as moveToSimple} from "./helpers/moveToSimple.js";
 
 // ===== Config =====
 
@@ -80,26 +81,7 @@ async function runMenuScript(script, blockName) {
 
 // ===== Position placement using calibrated mover =====
 async function runPlacementXYZ({ calibration, target, region, targetName }) {
-  console.log(`\nTwo-phase move starts in 3 seconds… (Target: ${target})`);
-  const result = await moveToTest({
-    target: target,
-    calibration,
-    dirKeys: { positive: "DPAD_RIGHT", negative: "DPAD_LEFT" },
-    region: region, 
-    wholeTol: 2, fracTol: 0.02,
-    tolerances: { relPct: MOVE_REL_TOL, absTol: MOVE_ABS_TOL },
-    absTol: CAL_ABS_TOL,
-    lead: HOLD_LEAD_MS,
-    tail: HOLD_TAIL_MS,
-  });
-
-  console.log("\nTwo-phase move result:", {
-    ok: result.ok,
-    target: result.target,
-    afterPhase1: Number(result.afterPhase1.toFixed(6)),
-    final: Number(result.final.toFixed(6)),
-    err: Number((result.target - result.final).toFixed(6)),
-  });
+  const result = await moveToSimple(target, calibration, region);
 
   return result;
 }
@@ -116,7 +98,8 @@ async function runPlacementROT({ calibration, target, region, targetName }) {
     dirKeys: { positive: "DPAD_RIGHT", negative: "DPAD_LEFT" },
     tolerances: { relPct: MOVE_REL_TOL, absTol: MOVE_ABS_TOL },
     maxSteps: MAX_STEPS,
-    wholeTol: 2, fracTol: 0.02,
+    wholeTol: 2,
+    fracTol: 0.02,
     smallestMaxTries: SMALLEST_MAX_TRIES,
     ui: { live: true },
     lead: 30,
@@ -212,7 +195,9 @@ async function main() {
 
       try {
         console.log(
-          `\n▶ Row ${i + 1}/${rows.length} model=${modelNumber} "${script.modelName}"`
+          `\n▶ Row ${i + 1}/${rows.length} model=${modelNumber} "${
+            script.modelName
+          }"`
         );
 
         // enter menu flow (your JSON drives the key taps)

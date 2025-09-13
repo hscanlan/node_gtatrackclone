@@ -4,10 +4,16 @@ import { tapName, keyDownName, keyUpName } from "./helpers/keys.js";
 import { readCurrent } from "./helpers/utils.js";
 import { sleep } from "./helpers/sleep.js";
 import { saveCalibration, loadCalibration } from "./helpers/calibrationIO.js";
-import { runMoveFlow } from "./helpers/runMoveFlow.js";
 import { createInterface } from "readline/promises";
 import { moveTo } from "./helpers/moveTo.js";
-import { moveToTest, moveWholeOnly, moveDecimalsOnly } from "./helpers/moveToTest.js";
+import {
+  moveToTest,
+  moveWholeOnly,
+  moveDecimalsOnly,
+} from "./helpers/moveToTest.js";
+
+import { moveTo as moveToSimple } from "./helpers/moveToSimple.js";
+import { read } from "fs";
 
 // ==== Config ====
 
@@ -24,20 +30,20 @@ const MOVE_REL_TOL = 0.0;
 
 // Limits
 const START_DELAY_MS = 8000;
-const MAX_STEPS = 400;
-const SMALLEST_MAX_TRIES = 150;
+const MAX_STEPS = 2000;
+const SMALLEST_MAX_TRIES = 50;
 
 // --- Calibration targets ---
-const calibrationTargets = [0.1];
+const calibrationTargets = [2,3,5,6,7];
 
 // --- Other calibration config ---
-const MAX_SUB_ITERS = 20;
+const MAX_SUB_ITERS = 30;
 const MIN_MS = 0;
-const MAX_MS = 2000;
+const MAX_MS = 1000;
 
 // Hold thresholds
-const HOLD_SQUARE_BELOW = 0.1;
-const HOLD_TRIANGLE_ABOVE = 0.9;
+const HOLD_SQUARE_BELOW = 0.3;
+const HOLD_TRIANGLE_ABOVE = 2.9;
 
 const HOLD_LEAD_MS = 0;
 const HOLD_TAIL_MS = 0;
@@ -115,7 +121,10 @@ async function tuneForTarget(target) {
   let best = null;
 
   for (let i = 0; i < MAX_SUB_ITERS; i++) {
-    const { xOriginalPos, xNewPosition, diff, held } = await measureOnce(ms, target);
+    const { xOriginalPos, xNewPosition, diff, held } = await measureOnce(
+      ms,
+      target
+    );
     const err = Math.abs(diff - target);
     const ok = err <= tolInfo.eff;
 
@@ -133,7 +142,17 @@ async function tuneForTarget(target) {
     pushAndRenderLive(row, target, tolInfo);
 
     if (!best || err < best.err) {
-      best = { ms, xOriginalPos, xNewPosition, diff, err, iter: i + 1, target, tolInfo, held };
+      best = {
+        ms,
+        xOriginalPos,
+        xNewPosition,
+        diff,
+        err,
+        iter: i + 1,
+        target,
+        tolInfo,
+        held,
+      };
     }
 
     if (ok) break;
@@ -203,7 +222,10 @@ async function tuneForTargetRotation(targetSigned) {
   let best = null;
 
   for (let i = 0; i < MAX_SUB_ITERS; i++) {
-    const { rotOrig, rotNew, diff, held } = await measureOnceRotation(ms, target360);
+    const { rotOrig, rotNew, diff, held } = await measureOnceRotation(
+      ms,
+      target360
+    );
     const err = Math.abs(diff - target360);
     const ok = err <= tolInfo.eff;
 
@@ -222,7 +244,17 @@ async function tuneForTargetRotation(targetSigned) {
     pushAndRenderLive(row, target360, tolInfo);
 
     if (!best || err < best.err) {
-      best = { ms, rotOrig, rotNew, diff, err, iter: i + 1, target360, held, tolInfo };
+      best = {
+        ms,
+        rotOrig,
+        rotNew,
+        diff,
+        err,
+        iter: i + 1,
+        target360,
+        held,
+        tolInfo,
+      };
     }
 
     if (ok) break;
@@ -250,13 +282,18 @@ async function runCalibrationSweepPosition(startMs, endMs, stepMs) {
 
   const [lo, hi] = s <= e ? [s, e] : [e, s];
 
-  console.log(`Starting ms sweep in 5 seconds... (range: ${lo}..${hi} step ${d})`);
+  console.log(
+    `Starting ms sweep in 5 seconds... (range: ${lo}..${hi} step ${d})`
+  );
   await sleep(5000);
 
   const rows = [];
   let i = 0;
   for (let ms = lo; ms <= hi; ms += d) {
-    const { xOriginalPos, xNewPosition, diff } = await measureOnce(ms, SWEEP_TARGET_FOR_HOLD);
+    const { xOriginalPos, xNewPosition, diff } = await measureOnce(
+      ms,
+      SWEEP_TARGET_FOR_HOLD
+    );
     rows.push({
       target: Number(diff.toFixed(6)),
       ms,
@@ -271,10 +308,19 @@ async function runCalibrationSweepPosition(startMs, endMs, stepMs) {
   }
 
   // Save ONLY the schema movers consume
-  const compact = rows.map(({ target, ms, heldKey }) => ({ target, ms, heldKey }));
-  await saveCalibration(compact, { filename: "positionCal.json", timestamp: false });
+  const compact = rows.map(({ target, ms, heldKey }) => ({
+    target,
+    ms,
+    heldKey,
+  }));
+  await saveCalibration(compact, {
+    filename: "positionCal.json",
+    timestamp: false,
+  });
 
-  console.log("\nSweep calibration complete. Saved positionCal.json with entries like:");
+  console.log(
+    "\nSweep calibration complete. Saved positionCal.json with entries like:"
+  );
   console.table(compact.slice(0, Math.min(10, compact.length)));
   console.log(`Total entries: ${compact.length}`);
 }
@@ -288,18 +334,25 @@ async function runCalibrationPosition() {
   console.clear();
   console.log("Calibration Complete (Position).\n\nBest Per Target:");
   console.table(bestResultsPosition);
-  await saveCalibration(bestResultsPosition, { filename: "positionCal.json", timestamp: false });
+  await saveCalibration(bestResultsPosition, {
+    filename: "positionCal.json",
+    timestamp: false,
+  });
 }
 
 // Calibration (rotation)
 async function runCalibrationRotation() {
   console.log("Starting rotation calibration in 5 seconds...");
   await sleep(5000);
-  for (const targetSigned of calibrationTargets) await tuneForTargetRotation(targetSigned);
+  for (const targetSigned of calibrationTargets)
+    await tuneForTargetRotation(targetSigned);
   console.clear();
   console.log("Calibration Complete (Rotation).\n\nBest Per Target:");
   console.table(bestResultsRotation);
-  await saveCalibration(bestResultsRotation, { filename: "rotationCal.json", timestamp: false });
+  await saveCalibration(bestResultsRotation, {
+    filename: "rotationCal.json",
+    timestamp: false,
+  });
 }
 
 // Regular move using moveTo (position)
@@ -308,6 +361,7 @@ async function runMovePosition(targetNum) {
   await sleep(3000);
 
   const calibration = await loadCalibration("positionCal.json");
+
   const targetName = "x";
 
   await moveTo({
@@ -328,7 +382,9 @@ async function runMovePosition(targetNum) {
 // Regular rotate using moveTo (rotation)
 async function runMoveRotation(targetSigned) {
   const target360 = to360(Number(targetSigned));
-  console.log(`\nMoving rotation in 3 seconds… (Input: ${targetSigned}, 0-360: ${target360})`);
+  console.log(
+    `\nMoving rotation in 3 seconds… (Input: ${targetSigned}, 0-360: ${target360})`
+  );
   await sleep(3000);
 
   const calibration = await loadCalibration("rotationCal.json");
@@ -397,6 +453,32 @@ async function runWholeOnlyPosition(targetNum) {
   });
 }
 
+async function runMovePositionNew(target) {
+  console.log(`\nMoving position in 3 seconds… (Target: ${target})`);
+  await sleep(3000);
+
+  const calibration = await loadCalibration("positionCal.json");
+
+  console.log(X_REGION);
+  await moveToSimple(target, calibration, X_REGION);
+}
+
+async function moveSimple(ms) {
+  for (var i = 0; i < 4; i++) {
+    console.log(i + ": ====== ");
+    const startVal = await readCurrent(X_REGION);
+    await tapName("DPAD_RIGHT", 1);
+    await tapName("DPAD_RIGHT", ms);
+    const endVal = await readCurrent(X_REGION);
+
+    console.table({
+      startVal: Number(startVal.toFixed(6)),
+      endValue: Number(endVal.toFixed(6)),
+      differen: Number((startVal - endVal).toFixed(6)),
+    });
+  }
+}
+
 // Decimals-only test (<1 steps)
 async function runDecimalsOnlyPosition(targetNum) {
   console.log(`\nDecimals-only move in 3 seconds… (Target: ${targetNum})`);
@@ -423,7 +505,14 @@ async function runDecimalsOnlyPosition(targetNum) {
 
 // ==== Entry (single readline instance) ====
 async function main() {
-  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+  // make sure we're NOT in raw mode
+  process.stdin.setRawMode?.(false);
+
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: true,
+  });
 
   try {
     console.log(
@@ -436,6 +525,7 @@ async function main() {
         "  6) Move (WHOLE ONLY)\n" +
         "  7) Move (DECIMALS ONLY)\n" +
         "  8) Calibrate (sweep ms range → position)\n" +
+        "  9) Move for x miliseconds\n" +
         "  Q) Quit"
     );
 
@@ -446,15 +536,19 @@ async function main() {
     } else if (choice === "2") {
       await runCalibrationRotation();
     } else if (choice === "3") {
-      const ans = await rl.question(`Enter target position value (e.g., -1235.324): `);
+      const ans = await rl.question(
+        `Enter target position value (e.g., -1235.324): `
+      );
       const targetNum = Number.parseFloat(ans);
       if (!Number.isFinite(targetNum)) {
         console.log("Invalid number.");
       } else {
-        await runMovePosition(targetNum);
+        await runMovePositionNew(targetNum);
       }
     } else if (choice === "4") {
-      const ans = await rl.question(`Enter target rotation value (signed, -180..180): `);
+      const ans = await rl.question(
+        `Enter target rotation value (signed, -180..180): `
+      );
       const targetSigned = Number.parseFloat(ans);
       if (!Number.isFinite(targetSigned)) {
         console.log("Invalid number.");
@@ -462,7 +556,9 @@ async function main() {
         await runMoveRotation(targetSigned);
       }
     } else if (choice === "5") {
-      const ans = await rl.question(`Enter target position value (e.g., -1235.324): `);
+      const ans = await rl.question(
+        `Enter target position value (e.g., -1235.324): `
+      );
       const targetNum = Number.parseFloat(ans);
       if (!Number.isFinite(targetNum)) {
         console.log("Invalid number.");
@@ -470,7 +566,9 @@ async function main() {
         await runTwoPhaseMovePosition(targetNum);
       }
     } else if (choice === "6") {
-      const ans = await rl.question(`Enter target position value (e.g., -1235.324): `);
+      const ans = await rl.question(
+        `Enter target position value (e.g., -1235.324): `
+      );
       const targetNum = Number.parseFloat(ans);
       if (!Number.isFinite(targetNum)) {
         console.log("Invalid number.");
@@ -478,7 +576,9 @@ async function main() {
         await runWholeOnlyPosition(targetNum);
       }
     } else if (choice === "7") {
-      const ans = await rl.question(`Enter target position value (e.g., -1235.324): `);
+      const ans = await rl.question(
+        `Enter target position value (e.g., -1235.324): `
+      );
       const targetNum = Number.parseFloat(ans);
       if (!Number.isFinite(targetNum)) {
         console.log("Invalid number.");
@@ -494,6 +594,16 @@ async function main() {
       } else {
         await runCalibrationSweepPosition(s, e, d);
       }
+    } else if (choice === "9") {
+      do {
+        var s = Number.parseInt(await rl.question("Move for X ms: "));
+        if ([s].some((n) => !Number.isFinite(n))) {
+          console.log("Invalid numbers.");
+        } else {
+          await sleep(2000);
+          await moveSimple(s);
+        }
+      } while (true);
     } else if (choice.toUpperCase() === "Q") {
       // fallthrough to finally
     } else {

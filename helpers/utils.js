@@ -14,7 +14,7 @@ import { tapName, keyDownName, keyUpName } from "../helpers/keys.js";
  *  - minConf: 60
  * You can override via the optional third param (opts) without breaking old calls.
  */
-export async function readCurrent(region, axis, opts = {}) 
+export async function readCurrent(region, axis = "", opts = {}) 
 {
   console.log('readCurrent');
 
@@ -22,7 +22,7 @@ export async function readCurrent(region, axis, opts = {})
     screenIndex: opts.screenIndex ?? 1, // keep your original default
     region,
   });
-
+  
   // Use the new OCR helper; still numeric-only by default
   const val = await extractText(buffer, {
     numericOnly: true,
@@ -39,7 +39,6 @@ export async function readCurrent(region, axis, opts = {})
   if (!Number.isFinite(val)) {
     throw new Error(`OCR failed on ${axis}: "${val}"`);
   }
-
 
   return val;
 }

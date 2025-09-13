@@ -1,35 +1,6 @@
 // sleep.js
 import { keyUpName } from "./keys.js";
 
-let paused = false;
-let resumeResolve = null;
-
-export function requestPause() {
-  if (!paused) {
-    paused = true;
-    console.log("\n⏸ Paused. Press 'c' to continue (delayed) or 'q' to quit.");
-  }
-}
-
-export async function requestResume(delaySec = 5) {
-  if (paused) {
-    console.log(`▶ Continuing in ${delaySec}s ...`);
-    setTimeout(() => {
-      paused = false;
-      console.log("▶ Resumed.");
-      resumeResolve?.();
-      resumeResolve = null;
-    }, delaySec * 1000);
-  }
-}
-
-export async function waitIfPaused() {
-  if (!paused) return;
-  return new Promise((resolve) => {
-    resumeResolve = resolve;
-  });
-}
-
 // ----- Singleton AbortController -----
 const GKEY = "__sleep_singleton__";
 const S = (globalThis[GKEY] ??= (() => {
@@ -45,6 +16,7 @@ function _abort(reason = "User requested quit") {
   if (!S.signal.aborted) {
     console.log(`\n⏹  ${reason}`);
 
+    // Release all held keys
     keyUpName("CROSS");
     keyUpName("CIRCLE");
     keyUpName("SQUARE");
@@ -59,7 +31,9 @@ function _abort(reason = "User requested quit") {
     keyUpName("R2");
 
     S.controller.abort();
-    process.exit(0); // <--- exit immediately, success code
+
+    // exit immediately
+    process.exit(0);
   }
 }
 
@@ -75,29 +49,8 @@ export function globalSignal() {
 if (!S.wired) {
   S.wired = true;
 
-  // Handle Ctrl-C as signal
-  process.on("SIGINT", () => _abort("SIGINT"));
-
-  // Handle Q/q/Ctrl-C on stdin if TTY
-  if (process.stdin.isTTY) {
-    try {
-      if (typeof process.stdin.setRawMode === "function") {
-        process.stdin.setRawMode(true);
-      }
-    } catch {
-      /* ignore */
-    }
-
-    process.stdin.setEncoding("utf8");
-    if (!process.stdin.readableFlowing) {
-      process.stdin.resume();
-    }
-
-    process.stdin.on("data", (chunk) => {
-      const s = String(chunk).trim();
-      if (s === "\u0003" || s.toLowerCase() === "q") _abort();
-    });
-  }
+  // Ensure Ctrl-C triggers our full abort cleanup
+  process.on("SIGINT", () => _abort("SIGINT (Ctrl-C)"));
 }
 
 // ----- Sleep -----
@@ -118,8 +71,8 @@ export function sleep(ms, { signal } = {}) {
     const onAbort = () => {
       clearTimeout(timer);
       composed?.removeEventListener?.("abort", onAbort);
-      // don't reject → just exit
-      process.exit(0);
+      // Run cleanup
+      _abort("Aborted during sleep");
     };
 
     if (composed) {
